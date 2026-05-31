@@ -1,14 +1,73 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authtoken.models import Token
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
 from .models import Task, Category
 from .serializers import (
     TaskSerializer, TaskCreateUpdateSerializer,
-    CategorySerializer, UserSerializer
+    CategorySerializer, UserSerializer, UserRegistrationSerializer
 )
+
+
+class AuthViewSet(viewsets.ViewSet):
+    permission_classes = [AllowAny]
+    
+    @action(detail=False, methods=['post'])
+    def register(self, request):
+        """Register a new user"""
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({
+                'user': UserSerializer(user).data,
+                'token': token.key
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['post'])
+    def login(self, request):
+        """Login user and return token"""
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        if not username or not password:
+            return Response(
+                {'error': 'Please provide both username and password'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Invalid username or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        if not user.check_password(password):
+            return Response(
+                {'error': 'Invalid username or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'token': token.key
+        })
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def logout(self, request):
+        """Logout user by deleting token"""
+        try:
+            request.user.auth_token.delete()
+        except:
+            pass
+        return Response({'message': 'Logged out successfully'})
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -27,6 +86,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return TaskCreateUpdateSerializer
         return TaskSerializer
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new task and return full TaskSerializer response"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save()
+        
+        output_serializer = TaskSerializer(task, context={'request': request})
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def update(self, request, *args, **kwargs):
+        """Update a task and return full TaskSerializer response"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save()
+        
+        output_serializer = TaskSerializer(task, context={'request': request})
+        return Response(output_serializer.data)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -82,3 +162,34 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         """Get current user info"""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Change user password"""
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        if not old_password or not new_password:
+            return Response(
+                {'error': 'Please provide old_password and new_password'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not user.check_password(old_password):
+            return Response(
+                {'error': 'Old password is incorrect'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.set_password(new_password)
+        user.save()
+        
+        # Recreate token after password change
+        Token.objects.filter(user=user).delete()
+        token = Token.objects.create(user=user)
+        
+        return Response({
+            'message': 'Password changed successfully',
+            'token': token.key
+        })

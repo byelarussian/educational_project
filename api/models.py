@@ -23,6 +23,7 @@ class Task(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     due_date = models.DateTimeField(null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
+    categories = models.ManyToManyField('Category', through='TaskCategory', related_name='tasks', blank=True)
     
     class Meta:
         ordering = ['-created_at']
