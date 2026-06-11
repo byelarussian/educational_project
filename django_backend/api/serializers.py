@@ -1,7 +1,6 @@
-from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Category
+from api.models import Task, Category
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -24,7 +23,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
+        return user
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -36,26 +36,14 @@ class CategorySerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
-    is_overdue = serializers.SerializerMethodField()
-    days_until_due = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
         fields = [
             'id', 'title', 'description', 'priority', 'status',
-            'created_at', 'updated_at', 'due_date', 'owner', 'categories',
-            'is_overdue', 'days_until_due',
+            'created_at', 'updated_at', 'due_date', 'owner', 'categories'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'owner', 'is_overdue', 'days_until_due']
-
-    def get_is_overdue(self, obj):
-        return bool(obj.due_date and obj.due_date < timezone.now())
-
-    def get_days_until_due(self, obj):
-        if not obj.due_date:
-            return None
-        delta = obj.due_date - timezone.now()
-        return max(delta.days, 0)
+        read_only_fields = ['created_at', 'updated_at', 'owner']
 
     def create(self, validated_data):
         validated_data['owner'] = self.context['request'].user
@@ -99,4 +87,3 @@ class TaskCreateUpdateSerializer(serializers.ModelSerializer):
             instance.categories.set(categories)
 
         return instance
-

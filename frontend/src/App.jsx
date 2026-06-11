@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import './App.css'
+import LoginPage from './pages/LoginPage.jsx'
+import RegisterPage from './pages/RegisterPage.jsx'
+import TasksPage from './pages/TasksPage.jsx'
+import CategoriesPage from './pages/CategoriesPage.jsx'
 import {
   changeTaskStatus,
+  createCategory,
   createTask,
+  deleteCategory,
+  deleteTask,
   fetchCategories,
   fetchMe,
   fetchTasks,
   login,
   logout,
   register,
+  updateCategory,
+  updateTask,
 } from './api'
 
 const initialTaskForm = {
@@ -20,16 +30,24 @@ const initialTaskForm = {
   category_ids: [],
 }
 
+const initialCategoryForm = {
+  name: '',
+  description: '',
+  color: '#007bff',
+}
+
 function App() {
-  const [isRegister, setIsRegister] = useState(false)
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
   const [categories, setCategories] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [authData, setAuthData] = useState({ username: '', password: '', email: '', first_name: '', last_name: '' })
-  const [taskForm, setTaskForm] = useState(initialTaskForm)
+  const [taskSearch, setTaskSearch] = useState('')
+  const [taskPage, setTaskPage] = useState(1)
+  const [taskPagination, setTaskPagination] = useState({ next: null, previous: null, count: 0 })
+  const [editingTask, setEditingTask] = useState(null)
+  const [editingCategory, setEditingCategory] = useState(null)
 
   const isAuthenticated = Boolean(token && user)
 
@@ -39,16 +57,19 @@ function App() {
     }
   }, [token])
 
-  const authHeaders = useMemo(() => {
-    return token ? { Authorization: `Token ${token}` } : {}
-  }, [token])
+  useEffect(() => {
+    if (token) {
+      loadTasks()
+    }
+  }, [token, taskPage, taskSearch])
 
   async function loadCurrentUser() {
     setLoading(true)
     try {
       const me = await fetchMe()
       setUser(me)
-      await loadTasksAndCategories()
+      await loadCategories()
+      await loadTasks()
     } catch (error) {
       setMessage('Session expired or backend unavailable. Please login again.')
       localStorage.removeItem('token')
@@ -59,33 +80,46 @@ function App() {
     }
   }
 
-  async function loadTasksAndCategories() {
+  async function loadTasks() {
     setLoading(true)
     try {
-      const tasksResponse = await fetchTasks()
-      const categoriesResponse = await fetchCategories()
-      setTasks(tasksResponse.results || [])
-      setCategories(categoriesResponse.results || [])
+      const response = await fetchTasks({ page: taskPage, search: taskSearch })
+      setTasks(response.results || [])
+      setTaskPagination({
+        next: response.next,
+        previous: response.previous,
+        count: response.count,
+      })
     } catch (error) {
-      setMessage(error.data?.error || 'Failed to load tasks or categories')
+      setMessage(error.data?.detail || 'Failed to load tasks')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleLoginSubmit(event) {
-    event.preventDefault()
-    setMessage('')
+  async function loadCategories() {
     setLoading(true)
-
     try {
-      const response = await login({ username: authData.username, password: authData.password })
+      const response = await fetchCategories()
+      setCategories(response.results || [])
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to load categories')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleLogin(credentials) {
+    setLoading(true)
+    setMessage('')
+    try {
+      const response = await login(credentials)
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      setAuthData({ username: '', password: '', email: '', first_name: '', last_name: '' })
+      await loadCategories()
+      await loadTasks()
       setMessage('Login successful')
-      await loadTasksAndCategories()
     } catch (error) {
       setMessage(error.data?.error || 'Login failed')
     } finally {
@@ -93,29 +127,22 @@ function App() {
     }
   }
 
-  async function handleRegisterSubmit(event) {
-    event.preventDefault()
-    setMessage('')
+  async function handleRegister(formData) {
     setLoading(true)
-
+    setMessage('')
     try {
       const response = await register({
-        username: authData.username,
-        email: authData.email,
-        password: authData.password,
-        password_confirm: authData.password,
-        first_name: authData.first_name,
-        last_name: authData.last_name,
+        ...formData,
+        password_confirm: formData.password,
       })
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      setAuthData({ username: '', password: '', email: '', first_name: '', last_name: '' })
+      await loadCategories()
+      await loadTasks()
       setMessage('Registration successful')
-      await loadTasksAndCategories()
     } catch (error) {
-      const errorText = error.data ? JSON.stringify(error.data) : 'Registration failed'
-      setMessage(errorText)
+      setMessage(error.data ? JSON.stringify(error.data) : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -125,7 +152,7 @@ function App() {
     setLoading(true)
     try {
       await logout()
-    } catch (error) {
+    } catch {
       // ignore logout errors
     }
     localStorage.removeItem('token')
@@ -137,25 +164,17 @@ function App() {
     setLoading(false)
   }
 
-  async function handleTaskSubmit(event) {
-    event.preventDefault()
-    setMessage('')
+  async function handleCreateTask(taskData) {
     setLoading(true)
-
-    const payload = {
-      title: taskForm.title,
-      description: taskForm.description,
-      priority: taskForm.priority,
-      status: taskForm.status,
-      due_date: taskForm.due_date || null,
-      category_ids: taskForm.category_ids,
-    }
-
+    setMessage('')
     try {
-      await createTask(payload)
-      setTaskForm(initialTaskForm)
+      await createTask({
+        ...taskData,
+        due_date: taskData.due_date || null,
+      })
+      setEditingTask(null)
       setMessage('Task created successfully')
-      await loadTasksAndCategories()
+      await loadTasks()
     } catch (error) {
       setMessage(error.data?.detail || 'Failed to create task')
     } finally {
@@ -163,12 +182,45 @@ function App() {
     }
   }
 
-  async function handleStatusChange(taskId, statusValue) {
+  async function handleUpdateTask(taskId, taskData) {
     setLoading(true)
+    setMessage('')
     try {
-      await changeTaskStatus(taskId, statusValue)
+      await updateTask(taskId, {
+        ...taskData,
+        due_date: taskData.due_date || null,
+      })
+      setEditingTask(null)
+      setMessage('Task saved successfully')
+      await loadTasks()
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to save task')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteTask(taskId) {
+    setLoading(true)
+    setMessage('')
+    try {
+      await deleteTask(taskId)
+      setMessage('Task removed')
+      await loadTasks()
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to remove task')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleStatusChange(taskId, status) {
+    setLoading(true)
+    setMessage('')
+    try {
+      await changeTaskStatus(taskId, status)
       setMessage('Task status updated')
-      await loadTasksAndCategories()
+      await loadTasks()
     } catch (error) {
       setMessage(error.data?.error || 'Failed to update status')
     } finally {
@@ -176,228 +228,178 @@ function App() {
     }
   }
 
-  const sortedTasks = [...tasks].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  async function handleCreateCategory(categoryData) {
+    setLoading(true)
+    setMessage('')
+    try {
+      await createCategory(categoryData)
+      setEditingCategory(null)
+      setMessage('Category created successfully')
+      await loadCategories()
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to create category')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleUpdateCategory(categoryId, categoryData) {
+    setLoading(true)
+    setMessage('')
+    try {
+      await updateCategory(categoryId, categoryData)
+      setEditingCategory(null)
+      setMessage('Category updated')
+      await loadCategories()
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to update category')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteCategory(categoryId) {
+    setLoading(true)
+    setMessage('')
+    try {
+      await deleteCategory(categoryId)
+      setEditingCategory(null)
+      setMessage('Category deleted')
+      await loadCategories()
+      await loadTasks()
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to delete category')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleEditTask(task) {
+    setEditingTask(task)
+  }
+
+  function handleCancelEditTask() {
+    setEditingTask(null)
+  }
+
+  function handleEditCategory(category) {
+    setEditingCategory(category)
+  }
+
+  function handleCancelEditCategory() {
+    setEditingCategory(null)
+  }
+
+  function handlePageChange(newPage) {
+    if (newPage >= 1) {
+      setTaskPage(newPage)
+    }
+  }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>Task Manager</h1>
-          <p>React + Django REST integration</p>
-        </div>
-        {isAuthenticated && (
-          <div className="header-actions">
-            <span>{user?.username}</span>
-            <button onClick={handleLogout} disabled={loading}>
-              Logout
-            </button>
+    <BrowserRouter>
+      <div className="app-shell">
+        <header className="app-header">
+          <div>
+            <h1>Task Manager</h1>
+            <p>React + Django REST integration</p>
           </div>
-        )}
-      </header>
-
-      <main className="app-main">
-        {message && <div className="message">{message}</div>}
-
-        {!isAuthenticated ? (
-          <section className="auth-panel">
-            <div className="auth-switch">
-              <button
-                className={!isRegister ? 'active' : ''}
-                onClick={() => setIsRegister(false)}
-                type="button"
-              >
-                Login
-              </button>
-              <button
-                className={isRegister ? 'active' : ''}
-                onClick={() => setIsRegister(true)}
-                type="button"
-              >
-                Register
+          {isAuthenticated && (
+            <div className="header-actions">
+              <nav className="main-nav">
+                <Link to="/tasks">Tasks</Link>
+                <Link to="/categories">Categories</Link>
+              </nav>
+              <span>{user?.username}</span>
+              <button onClick={handleLogout} disabled={loading}>
+                Logout
               </button>
             </div>
+          )}
+        </header>
 
-            <form onSubmit={isRegister ? handleRegisterSubmit : handleLoginSubmit} className="auth-form">
-              {isRegister && (
-                <>
-                  <label>
-                    Email
-                    <input
-                      type="email"
-                      value={authData.email}
-                      onChange={(event) => setAuthData({ ...authData, email: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label>
-                    First name
-                    <input
-                      type="text"
-                      value={authData.first_name}
-                      onChange={(event) => setAuthData({ ...authData, first_name: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Last name
-                    <input
-                      type="text"
-                      value={authData.last_name}
-                      onChange={(event) => setAuthData({ ...authData, last_name: event.target.value })}
-                      required
-                    />
-                  </label>
-                </>
-              )}
+        <main className="app-main">
+          {message && <div className="message">{message}</div>}
 
-              <label>
-                Username
-                <input
-                  type="text"
-                  value={authData.username}
-                  onChange={(event) => setAuthData({ ...authData, username: event.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={authData.password}
-                  onChange={(event) => setAuthData({ ...authData, password: event.target.value })}
-                  required
-                />
-              </label>
-
-              <button type="submit" disabled={loading}>
-                {isRegister ? 'Register' : 'Login'}
-              </button>
-            </form>
-          </section>
-        ) : (
-          <section className="tasks-panel">
-            <div className="tasks-header">
-              <h2>Your Tasks</h2>
-              <button onClick={loadTasksAndCategories} disabled={loading}>
-                Refresh
-              </button>
-            </div>
-
-            <form className="task-form" onSubmit={handleTaskSubmit}>
-              <h3>Create New Task</h3>
-              <label>
-                Title
-                <input
-                  type="text"
-                  value={taskForm.title}
-                  onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                Description
-                <textarea
-                  value={taskForm.description}
-                  onChange={(event) => setTaskForm({ ...taskForm, description: event.target.value })}
-                />
-              </label>
-              <label>
-                Priority
-                <select
-                  value={taskForm.priority}
-                  onChange={(event) => setTaskForm({ ...taskForm, priority: event.target.value })}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </label>
-              <label>
-                Status
-                <select
-                  value={taskForm.status}
-                  onChange={(event) => setTaskForm({ ...taskForm, status: event.target.value })}
-                >
-                  <option value="todo">Todo</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </label>
-              <label>
-                Due date
-                <input
-                  type="datetime-local"
-                  value={taskForm.due_date}
-                  onChange={(event) => setTaskForm({ ...taskForm, due_date: event.target.value })}
-                />
-              </label>
-              <label>
-                Categories
-                <select
-                  multiple
-                  value={taskForm.category_ids}
-                  onChange={(event) => {
-                    const selected = Array.from(event.target.selectedOptions, (option) => Number(option.value))
-                    setTaskForm({ ...taskForm, category_ids: selected })
-                  }}
-                >
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" disabled={loading}>
-                Create Task
-              </button>
-            </form>
-
-            <div className="task-list">
-              {sortedTasks.length === 0 ? (
-                <p>No tasks yet. Create one to get started.</p>
-              ) : (
-                sortedTasks.map((task) => (
-                  <article className="task-item" key={task.id}>
-                    <div className="task-meta">
-                      <strong>{task.title}</strong>
-                      <span>{task.priority}</span>
-                      <span>{task.status}</span>
-                    </div>
-                    <p>{task.description || 'No description'}</p>
-                    <p className="task-extra">
-                      Due: {task.due_date ? new Date(task.due_date).toLocaleString() : '—'}
-                    </p>
-                    <p className="task-extra">
-                      Categories:{' '}
-                      {task.categories?.length ? task.categories.map((c) => c.name).join(', ') : 'None'}
-                    </p>
-                    <div className="task-actions">
-                      {task.status !== 'completed' && (
-                        <button
-                          onClick={() => handleStatusChange(task.id, 'completed')}
-                          disabled={loading}
-                        >
-                          Mark completed
-                        </button>
-                      )}
-                      {task.status !== 'in_progress' && (
-                        <button
-                          onClick={() => handleStatusChange(task.id, 'in_progress')}
-                          disabled={loading}
-                        >
-                          In progress
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
+          <Routes>
+            <Route
+              path="/"
+              element={isAuthenticated ? <Navigate to="/tasks" replace /> : <Navigate to="/login" replace />}
+            />
+            <Route
+              path="/login"
+              element={
+                !isAuthenticated ? (
+                  <LoginPage onLogin={handleLogin} loading={loading} message={message} setMessage={setMessage} />
+                ) : (
+                  <Navigate to="/tasks" replace />
+                )
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                !isAuthenticated ? (
+                  <RegisterPage onRegister={handleRegister} loading={loading} message={message} setMessage={setMessage} />
+                ) : (
+                  <Navigate to="/tasks" replace />
+                )
+              }
+            />
+            <Route
+              path="/tasks"
+              element={
+                isAuthenticated ? (
+                  <TasksPage
+                    tasks={tasks}
+                    categories={categories}
+                    loading={loading}
+                    message={message}
+                    search={taskSearch}
+                    page={taskPage}
+                    pagination={taskPagination}
+                    onSearch={(value) => {
+                      setTaskSearch(value)
+                      setTaskPage(1)
+                    }}
+                    onPageChange={handlePageChange}
+                    onEditTask={handleEditTask}
+                    onCreateTask={handleCreateTask}
+                    onUpdateTask={handleUpdateTask}
+                    onDeleteTask={handleDeleteTask}
+                    onStatusChange={handleStatusChange}
+                    editingTask={editingTask}
+                    onCancelEdit={handleCancelEditTask}
+                  />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/categories"
+              element={
+                isAuthenticated ? (
+                  <CategoriesPage
+                    categories={categories}
+                    loading={loading}
+                    message={message}
+                    onCreateCategory={handleCreateCategory}
+                    onUpdateCategory={handleUpdateCategory}
+                    onDeleteCategory={handleDeleteCategory}
+                    editingCategory={editingCategory}
+                    onEditCategory={handleEditCategory}
+                    onCancelEdit={handleCancelEditCategory}
+                  />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
   )
 }
 

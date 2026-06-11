@@ -1,0 +1,187 @@
+Using pip 25.2 from G:\educational_project\.venv\Lib\site-packages\pip (python 3.13)
+Non-user install because user site-packages disabled
+Created temporary directory: C:\Users\Family\AppData\Local\Temp\pip-build-tracker-djr_6fd_
+Initialized build tracking at C:\Users\Family\AppData\Local\Temp\pip-build-tracker-djr_6fd_
+Created build tracker: C:\Users\Family\AppData\Local\Temp\pip-build-tracker-djr_6fd_
+Entered build tracker: C:\Users\Family\AppData\Local\Temp\pip-build-tracker-djr_6fd_
+Created temporary directory: C:\Users\Family\AppData\Local\Temp\pip-install-_8kjk46s
+Created temporary directory: C:\Users\Family\AppData\Local\Temp\pip-ephem-wheel-cache-exsekfa0
+1 location(s) to search for versions of asgiref:
+* https://pypi.org/simple/asgiref/
+Fetching project page and analyzing links: https://pypi.org/simple/asgiref/
+Getting page https://pypi.org/simple/asgiref/
+Found index url https://pypi.org/simple/
+Looking up "https://pypi.org/simple/asgiref/" in the cache
+Request header has "max_age" as 0, cache bypassed
+ERROR: Could not install packages due to an OSError.
+Traceback (most recent call last):
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\commands\install.py", line 393, in run
+    requirement_set = resolver.resolve(
+        reqs, check_supported_wheels=not options.target_dir
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\resolution\resolvelib\resolver.py", line 98, in resolve
+    result = self._result = resolver.resolve(
+                            ~~~~~~~~~~~~~~~~^
+        collected.requirements, max_rounds=limit_how_complex_resolution_can_be
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\resolvelib\resolvers\resolution.py", line 596, in resolve
+    state = resolution.resolve(requirements, max_rounds=max_rounds)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\resolvelib\resolvers\resolution.py", line 429, in resolve
+    self._add_to_criteria(self.state.criteria, r, parent=None)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\resolvelib\resolvers\resolution.py", line 150, in _add_to_criteria
+    if not criterion.candidates:
+           ^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\resolvelib\structs.py", line 194, in __bool__
+    return bool(self._sequence)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\resolution\resolvelib\found_candidates.py", line 165, in __bool__
+    self._bool = any(self)
+                 ~~~^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\resolution\resolvelib\found_candidates.py", line 149, in <genexpr>
+    return (c for c in iterator if id(c) not in self._incompatible_ids)
+                       ^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\resolution\resolvelib\found_candidates.py", line 35, in _iter_built
+    for version, func in infos:
+                         ^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\resolution\resolvelib\factory.py", line 300, in iter_index_candidate_infos
+    result = self._finder.find_best_candidate(
+        project_name=name,
+        specifier=specifier,
+        hashes=hashes,
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 915, in find_best_candidate
+    candidates = self.find_all_candidates(project_name)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 852, in find_all_candidates
+    page_candidates = list(page_candidates_it)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\sources.py", line 196, in page_candidates
+    yield from self._candidates_from_page(self._link)
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 810, in process_project_url
+    index_response = self._link_collector.fetch_response(project_url)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 443, in fetch_response
+    return _get_index_content(location, session=self.session)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 347, in _get_index_content
+    resp = _get_simple_response(url, session=session)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 126, in _get_simple_response
+    resp = session.get(
+        url,
+    ...<22 lines>...
+        },
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 602, in get
+    return self.request("GET", url, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\network\session.py", line 528, in request
+    return super().request(method, url, *args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\cachecontrol\adapter.py", line 77, in send
+    resp = super().send(request, stream, timeout, verify, cert, proxies)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 633, in send
+    conn = self.get_connection_with_tls_context(
+        request, verify, proxies=proxies, cert=cert
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 483, in get_connection_with_tls_context
+    proxy_manager = self.proxy_manager_for(proxy)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\network\session.py", line 292, in proxy_manager_for
+    return super().proxy_manager_for(proxy, **proxy_kwargs)  # type: ignore[misc]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 282, in proxy_manager_for
+    manager = self.proxy_manager[proxy] = SOCKSProxyManager(
+                                          ~~~~~~~~~~~~~~~~~^
+        proxy,
+        ^^^^^^
+    ...<5 lines>...
+        **proxy_kwargs,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 64, in SOCKSProxyManager
+    raise InvalidSchema("Missing dependencies for SOCKS support.")
+pip._vendor.requests.exceptions.InvalidSchema: Missing dependencies for SOCKS support.
+1 location(s) to search for versions of pip:
+* https://pypi.org/simple/pip/
+Fetching project page and analyzing links: https://pypi.org/simple/pip/
+Getting page https://pypi.org/simple/pip/
+Found index url https://pypi.org/simple/
+Looking up "https://pypi.org/simple/pip/" in the cache
+Request header has "max_age" as 0, cache bypassed
+WARNING: There was an error checking the latest version of pip.
+See below for error
+Traceback (most recent call last):
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\cli\index_command.py", line 172, in handle_pip_version_check
+    _pip_self_version_check(session, options)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\cli\index_command.py", line 142, in _pip_self_version_check
+    check(session, options)
+    ~~~~~^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\self_outdated_check.py", line 245, in pip_self_version_check
+    upgrade_prompt = _self_version_check_logic(
+        state=SelfCheckState(cache_dir=options.cache_dir),
+    ...<4 lines>...
+        ),
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\self_outdated_check.py", line 205, in _self_version_check_logic
+    remote_version_str = get_remote_version()
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\self_outdated_check.py", line 189, in _get_current_remote_pip_version
+    best_candidate = finder.find_best_candidate("pip").best_candidate
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 915, in find_best_candidate
+    candidates = self.find_all_candidates(project_name)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 852, in find_all_candidates
+    page_candidates = list(page_candidates_it)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\sources.py", line 196, in page_candidates
+    yield from self._candidates_from_page(self._link)
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\package_finder.py", line 810, in process_project_url
+    index_response = self._link_collector.fetch_response(project_url)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 443, in fetch_response
+    return _get_index_content(location, session=self.session)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 347, in _get_index_content
+    resp = _get_simple_response(url, session=session)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\index\collector.py", line 126, in _get_simple_response
+    resp = session.get(
+        url,
+    ...<22 lines>...
+        },
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 602, in get
+    return self.request("GET", url, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\network\session.py", line 528, in request
+    return super().request(method, url, *args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\cachecontrol\adapter.py", line 77, in send
+    resp = super().send(request, stream, timeout, verify, cert, proxies)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 633, in send
+    conn = self.get_connection_with_tls_context(
+        request, verify, proxies=proxies, cert=cert
+    )
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 483, in get_connection_with_tls_context
+    proxy_manager = self.proxy_manager_for(proxy)
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_internal\network\session.py", line 292, in proxy_manager_for
+    return super().proxy_manager_for(proxy, **proxy_kwargs)  # type: ignore[misc]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 282, in proxy_manager_for
+    manager = self.proxy_manager[proxy] = SOCKSProxyManager(
+                                          ~~~~~~~~~~~~~~~~~^
+        proxy,
+        ^^^^^^
+    ...<5 lines>...
+        **proxy_kwargs,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "G:\educational_project\.venv\Lib\site-packages\pip\_vendor\requests\adapters.py", line 64, in SOCKSProxyManager
+    raise InvalidSchema("Missing dependencies for SOCKS support.")
+pip._vendor.requests.exceptions.InvalidSchema: Missing dependencies for SOCKS support.
+Removed build tracker: 'C:\\Users\\Family\\AppData\\Local\\Temp\\pip-build-tracker-djr_6fd_'

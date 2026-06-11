@@ -155,3 +155,56 @@ class BackendAPITest(APITestCase):
             format='json'
         )
         self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+    def test_update_task(self):
+        task = Task.objects.create(
+            title='Update task',
+            description='Initial',
+            priority='medium',
+            status='todo',
+            owner=self.user
+        )
+        response = self.client.patch(
+            reverse('task-detail', kwargs={'pk': task.id}),
+            {'title': 'Updated task', 'description': 'Changed'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'Updated task')
+        self.assertEqual(response.data['description'], 'Changed')
+
+    def test_delete_task(self):
+        task = Task.objects.create(
+            title='Delete task',
+            description='Will be removed',
+            priority='low',
+            status='todo',
+            owner=self.user
+        )
+        response = self.client.delete(reverse('task-detail', kwargs={'pk': task.id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Task.objects.filter(id=task.id).exists())
+
+    def test_category_crud(self):
+        # Create category
+        response = self.client.post(
+            reverse('category-list'),
+            {'name': 'Personal', 'description': 'Personal tasks', 'color': '#00aa00'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        category_id = response.data['id']
+
+        # Update category
+        response = self.client.patch(
+            reverse('category-detail', kwargs={'pk': category_id}),
+            {'description': 'Updated personal tasks'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['description'], 'Updated personal tasks')
+
+        # Delete category
+        response = self.client.delete(reverse('category-detail', kwargs={'pk': category_id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(id=category_id).exists())

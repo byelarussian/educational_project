@@ -74,13 +74,13 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority']
+    filterset_fields = ['status', 'priority', 'categories', 'due_date']
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'updated_at', 'due_date', 'priority']
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Task.objects.filter(owner=self.request.user)
+        return Task.objects.filter(owner=self.request.user).prefetch_related('categories')
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
