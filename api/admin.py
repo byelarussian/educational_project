@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Task, Category, TaskCategory
+from .models import Task, Category, TaskCategory, Product, ProductCategory
 
 
 @admin.register(Category)
@@ -34,3 +34,18 @@ class TaskCategoryAdmin(admin.ModelAdmin):
     list_display = ['task', 'category']
     list_filter = ['category']
     search_fields = ['task__title', 'category__name']
+
+
+@admin.register(ProductCategory)
+class ProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'slug', 'url', 'created_at']
+    search_fields = ['name', 'slug']
+    ordering = ['name']
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ['title', 'brand', 'price', 'currency', 'category', 'updated_at']
+    list_filter = ['brand', 'currency', 'category']
+    search_fields = ['title', 'brand', 'tag', 'product_url']
+    ordering = ['-updated_at']
