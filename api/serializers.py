@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Category
+from .models import Task, Category, Product, ProductCategory
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -99,4 +99,28 @@ class TaskCreateUpdateSerializer(serializers.ModelSerializer):
             instance.categories.set(categories)
 
         return instance
+
+
+class ProductCategorySerializer(serializers.ModelSerializer):
+    products_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCategory
+        fields = ['id', 'name', 'slug', 'url', 'created_at', 'products_count']
+        read_only_fields = ['slug', 'created_at', 'products_count']
+
+    def get_products_count(self, obj):
+        return obj.products.count()
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    category = ProductCategorySerializer(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'slug', 'product_url', 'image_url', 'price',
+            'currency', 'brand', 'tag', 'category', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['slug', 'created_at', 'updated_at']
 

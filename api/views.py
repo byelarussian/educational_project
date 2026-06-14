@@ -5,10 +5,11 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
-from .models import Task, Category
+from .models import Task, Category, Product, ProductCategory
 from .serializers import (
     TaskSerializer, TaskCreateUpdateSerializer,
-    CategorySerializer, UserSerializer, UserRegistrationSerializer
+    CategorySerializer, UserSerializer, UserRegistrationSerializer,
+    ProductSerializer, ProductCategorySerializer
 )
 
 
@@ -193,3 +194,35 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
             'message': 'Password changed successfully',
             'token': token.key
         })
+
+class ProductCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ProductCategory.objects.all()
+    serializer_class = ProductCategorySerializer
+    permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'slug']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+
+class ProductViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['brand', 'currency', 'category', 'tag']
+    search_fields = ['title', 'brand', 'tag']
+    ordering_fields = ['price', 'created_at', 'updated_at']
+    ordering = ['-updated_at']
+    
+    @action(detail=False, methods=['get'])
+    def by_category(self, request):
+        categories = ProductCategory.objects.prefetch_related('products').all()
+        data = []
+        for cat in categories:
+            data.append({
+                'category': ProductCategorySerializer(cat).data,
+                'products': ProductSerializer(cat.products.all(), many=True).data,
+            })
+        return Response(data)
+
