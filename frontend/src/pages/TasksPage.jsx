@@ -23,13 +23,13 @@ export default function TasksPage({
     <section className="tasks-page">
       <div className="page-header">
         <div>
-          <h2>Tasks</h2>
-          <p>Manage your tasks, filter by search, and edit or delete items.</p>
+          <h2>Задачи</h2>
+          <p>Управляйте своими задачами, ищите и редактируйте элементы.</p>
         </div>
         <div className="search-input">
           <input
             type="search"
-            placeholder="Search tasks..."
+            placeholder="Поиск задач..."
             value={search}
             onChange={(event) => onSearch(event.target.value)}
           />

@@ -12,11 +12,11 @@ export default function LoginPage({ onLogin, loading, message, setMessage }) {
 
   return (
     <section className="auth-page">
-      <h2>Login</h2>
+      <h2>Вход</h2>
       {message && <div className="message">{message}</div>}
       <form className="auth-form" onSubmit={handleSubmit}>
         <label>
-          Username
+          Имя пользователя
           <input
             type="text"
             value={credentials.username}
@@ -25,7 +25,7 @@ export default function LoginPage({ onLogin, loading, message, setMessage }) {
           />
         </label>
         <label>
-          Password
+          Пароль
           <input
             type="password"
             value={credentials.password}
@@ -34,11 +34,11 @@ export default function LoginPage({ onLogin, loading, message, setMessage }) {
           />
         </label>
         <button type="submit" disabled={loading}>
-          Sign in
+          Войти
         </button>
       </form>
       <p className="form-footer">
-        New here? <Link to="/register">Create account</Link>
+        Новичок? <Link to="/register">Создать аккаунт</Link>
       </p>
     </section>
   )

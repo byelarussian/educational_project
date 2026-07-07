@@ -34,9 +34,9 @@ export default function TaskForm({ task, categories, onSubmit, onCancel, loading
 
   return (
     <form className="task-form" onSubmit={handleSubmit}>
-      <h3>{task ? 'Edit task' : 'Create new task'}</h3>
+      <h3>{task ? 'Редактировать задачу' : 'Создать новую задачу'}</h3>
       <label>
-        Title
+        Название
         <input
           type="text"
           value={form.title}
@@ -45,36 +45,36 @@ export default function TaskForm({ task, categories, onSubmit, onCancel, loading
         />
       </label>
       <label>
-        Description
+        Описание
         <textarea
           value={form.description}
           onChange={(event) => setForm({ ...form, description: event.target.value })}
         />
       </label>
       <label>
-        Priority
+        Приоритет
         <select
           value={form.priority}
           onChange={(event) => setForm({ ...form, priority: event.target.value })}
         >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
+          <option value="low">Низкий</option>
+          <option value="medium">Средний</option>
+          <option value="high">Высокий</option>
         </select>
       </label>
       <label>
-        Status
+        Статус
         <select
           value={form.status}
           onChange={(event) => setForm({ ...form, status: event.target.value })}
         >
-          <option value="todo">Todo</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
+          <option value="todo">К выполнению</option>
+          <option value="in_progress">В процессе</option>
+          <option value="completed">Завершено</option>
         </select>
       </label>
       <label>
-        Due date
+        Срок выполнения
         <input
           type="datetime-local"
           value={form.due_date}
@@ -82,7 +82,7 @@ export default function TaskForm({ task, categories, onSubmit, onCancel, loading
         />
       </label>
       <label>
-        Categories
+        Категории
         <select
           multiple
           value={form.category_ids}
@@ -100,11 +100,11 @@ export default function TaskForm({ task, categories, onSubmit, onCancel, loading
       </label>
       <div className="form-actions">
         <button type="submit" disabled={loading}>
-          {task ? 'Save task' : 'Create task'}
+          {task ? 'Сохранить задачу' : 'Создать задачу'}
         </button>
         {task && (
           <button type="button" className="secondary" onClick={onCancel} disabled={loading}>
-            Cancel
+            Отмена
           </button>
         )}
       </div>

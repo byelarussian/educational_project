@@ -16,8 +16,8 @@ export default function CategoriesPage({
     <section className="tasks-page">
       <div className="page-header">
         <div>
-          <h2>Categories</h2>
-          <p>Manage categories used to organize your tasks.</p>
+          <h2>Категории</h2>
+          <p>Управляйте категориями для организации ваших задач.</p>
         </div>
       </div>
 

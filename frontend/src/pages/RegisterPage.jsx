@@ -18,11 +18,11 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
 
   return (
     <section className="auth-page">
-      <h2>Register</h2>
+      <h2>Регистрация</h2>
       {message && <div className="message">{message}</div>}
       <form className="auth-form" onSubmit={handleSubmit}>
         <label>
-          Username
+          Имя пользователя
           <input
             type="text"
             value={formData.username}
@@ -40,7 +40,7 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
           />
         </label>
         <label>
-          First name
+          Имя
           <input
             type="text"
             value={formData.first_name}
@@ -49,7 +49,7 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
           />
         </label>
         <label>
-          Last name
+          Фамилия
           <input
             type="text"
             value={formData.last_name}
@@ -58,7 +58,7 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
           />
         </label>
         <label>
-          Password
+          Пароль
           <input
             type="password"
             value={formData.password}
@@ -67,11 +67,11 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
           />
         </label>
         <button type="submit" disabled={loading}>
-          Create account
+          Создать аккаунт
         </button>
       </form>
       <p className="form-footer">
-        Already have an account? <Link to="/login">Sign in</Link>
+        Уже есть аккаунт? <Link to="/login">Войти</Link>
       </p>
     </section>
   )

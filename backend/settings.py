@@ -29,15 +29,15 @@ except ImportError:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
+SECRET_KEY = os.getenv(
     'DJANGO_SECRET_KEY',
     'django-insecure-o&2ucqkyov68glyjekiytvc8_cj(x$#3xl8j)3wpi+duzpb8e-'
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
 
 
 # Application definition
@@ -92,8 +92,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DJANGO_DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': os.environ.get('DJANGO_DB_NAME', BASE_DIR / 'db.sqlite3'),
+        'ENGINE': os.getenv('DJANGO_DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.getenv('DJANGO_DB_NAME', BASE_DIR / 'db.sqlite3'),
     }
 }
 
@@ -163,13 +163,13 @@ REST_FRAMEWORK = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.environ.get(
+    for origin in os.getenv(
         'CORS_ALLOWED_ORIGINS',
         'http://localhost:3000,http://127.0.0.1:3000'
     ).split(',')
     if origin.strip()
 ]
 
-CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in (
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in (
     'true', '1', 'yes'
 )

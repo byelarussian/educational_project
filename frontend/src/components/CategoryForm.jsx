@@ -28,9 +28,9 @@ export default function CategoryForm({ category, onSubmit, onCancel, loading }) 
 
   return (
     <form className="task-form" onSubmit={handleSubmit}>
-      <h3>{category ? 'Edit category' : 'Create new category'}</h3>
+      <h3>{category ? 'Редактировать категорию' : 'Создать новую категорию'}</h3>
       <label>
-        Name
+        Название
         <input
           type="text"
           value={form.name}
@@ -39,14 +39,14 @@ export default function CategoryForm({ category, onSubmit, onCancel, loading }) 
         />
       </label>
       <label>
-        Description
+        Описание
         <textarea
           value={form.description}
           onChange={(event) => setForm({ ...form, description: event.target.value })}
         />
       </label>
       <label>
-        Color
+        Цвет
         <input
           type="color"
           value={form.color}
@@ -55,11 +55,11 @@ export default function CategoryForm({ category, onSubmit, onCancel, loading }) 
       </label>
       <div className="form-actions">
         <button type="submit" disabled={loading}>
-          {category ? 'Save category' : 'Create category'}
+          {category ? 'Сохранить категорию' : 'Создать категорию'}
         </button>
         {category && (
           <button type="button" className="secondary" onClick={onCancel} disabled={loading}>
-            Cancel
+            Отмена
           </button>
         )}
       </div>

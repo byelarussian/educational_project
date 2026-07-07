@@ -69,6 +69,11 @@ export function fetchCategories({ page, search } = {}) {
   return request(`/categories/${query}`)
 }
 
+export function fetchProducts({ page, search } = {}) {
+  const query = buildQuery({ page, search })
+  return request(`/products/${query}`)
+}
+
 export function createTask(data) {
   return request('/tasks/', {
     method: 'POST',

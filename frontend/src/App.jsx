@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
 import CategoriesPage from './pages/CategoriesPage.jsx'
+import ProductsPage from './pages/ProductsPage.jsx'
 import {
   changeTaskStatus,
   createCategory,
@@ -13,6 +14,7 @@ import {
   deleteTask,
   fetchCategories,
   fetchMe,
+  fetchProducts,
   fetchTasks,
   login,
   logout,
@@ -41,11 +43,14 @@ function App() {
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
   const [categories, setCategories] = useState([])
+  const [products, setProducts] = useState([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [taskSearch, setTaskSearch] = useState('')
   const [taskPage, setTaskPage] = useState(1)
+  const [productPage, setProductPage] = useState(1)
   const [taskPagination, setTaskPagination] = useState({ next: null, previous: null, count: 0 })
+  const [productPagination, setProductPagination] = useState({ next: null, previous: null, count: 0 })
   const [editingTask, setEditingTask] = useState(null)
   const [editingCategory, setEditingCategory] = useState(null)
 
@@ -60,8 +65,9 @@ function App() {
   useEffect(() => {
     if (token) {
       loadTasks()
+      loadProducts()
     }
-  }, [token, taskPage, taskSearch])
+  }, [token, taskPage, taskSearch, productPage])
 
   async function loadCurrentUser() {
     setLoading(true)
@@ -104,6 +110,23 @@ function App() {
       setCategories(response.results || [])
     } catch (error) {
       setMessage(error.data?.detail || 'Failed to load categories')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadProducts() {
+    setLoading(true)
+    try {
+      const response = await fetchProducts({ page: productPage })
+      setProducts(response.results || [])
+      setProductPagination({
+        next: response.next,
+        previous: response.previous,
+        count: response.count,
+      })
+    } catch (error) {
+      setMessage(error.data?.detail || 'Failed to load products')
     } finally {
       setLoading(false)
     }
@@ -301,18 +324,19 @@ function App() {
       <div className="app-shell">
         <header className="app-header">
           <div>
-            <h1>Task Manager</h1>
-            <p>React + Django REST integration</p>
+            <h1>Менеджер Задач</h1>
+            <p>React + Django REST интеграция</p>
           </div>
           {isAuthenticated && (
             <div className="header-actions">
               <nav className="main-nav">
-                <Link to="/tasks">Tasks</Link>
-                <Link to="/categories">Categories</Link>
+                <Link to="/tasks">Задачи</Link>
+                <Link to="/categories">Категории</Link>
+                <Link to="/products">Товары</Link>
               </nav>
               <span>{user?.username}</span>
               <button onClick={handleLogout} disabled={loading}>
-                Logout
+                Выход
               </button>
             </div>
           )}
@@ -390,6 +414,25 @@ function App() {
                     editingCategory={editingCategory}
                     onEditCategory={handleEditCategory}
                     onCancelEdit={handleCancelEditCategory}
+                  />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                isAuthenticated ? (
+                  <ProductsPage
+                    products={products}
+                    loading={loading}
+                    message={message}
+                    page={productPage}
+                    pagination={productPagination}
+                    onPageChange={(newPage) => {
+                      if (newPage >= 1) setProductPage(newPage)
+                    }}
                   />
                 ) : (
                   <Navigate to="/login" replace />
