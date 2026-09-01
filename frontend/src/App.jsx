@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import './App.css'
+import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
@@ -322,12 +323,12 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app-shell">
-        <header className="app-header">
-          <div>
-            <h1>Менеджер Задач</h1>
-            <p>React + Django REST интеграция</p>
-          </div>
-          {isAuthenticated && (
+        {isAuthenticated && (
+          <header className="app-header">
+            <div>
+              <h1>Менеджер Задач</h1>
+              <p>React + Django REST интеграция</p>
+            </div>
             <div className="header-actions">
               <nav className="main-nav">
                 <Link to="/tasks">Задачи</Link>
@@ -339,8 +340,8 @@ function App() {
                 Выход
               </button>
             </div>
-          )}
-        </header>
+          </header>
+        )}
 
         <main className="app-main">
           {message && <div className="message">{message}</div>}
@@ -348,7 +349,19 @@ function App() {
           <Routes>
             <Route
               path="/"
-              element={isAuthenticated ? <Navigate to="/tasks" replace /> : <Navigate to="/login" replace />}
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/tasks" replace />
+                ) : (
+                  <HomePage
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                    loading={loading}
+                    message={message}
+                    setMessage={setMessage}
+                  />
+                )
+              }
             />
             <Route
               path="/login"
