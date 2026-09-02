@@ -24,6 +24,17 @@ import {
   updateTask,
 } from './api'
 
+function formatAuthError(data, fallback) {
+  if (!data) return fallback
+  if (typeof data === 'string') return data
+  if (data.error) return data.error
+  if (data.detail) return data.detail
+
+  return Object.entries(data)
+    .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : value}`)
+    .join(' ')
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -34,7 +45,7 @@ function App() {
 
 function AppContent() {
   const location = useLocation()
-  const isStoreHome = location.pathname === '/'
+  const isStoreFront = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register'
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
@@ -194,9 +205,9 @@ function AppContent() {
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      setMessage('Login successful')
+      setMessage('Вход выполнен')
     } catch (error) {
-      setMessage(error.data?.error || 'Login failed')
+      setMessage(error.data?.error || 'Не удалось войти')
     } finally {
       setLoading(false)
     }
@@ -208,14 +219,14 @@ function AppContent() {
     try {
       const response = await register({
         ...formData,
-        password_confirm: formData.password,
+        password_confirm: formData.password_confirm || formData.password,
       })
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      setMessage('Registration successful')
+      setMessage('Регистрация прошла успешно')
     } catch (error) {
-      setMessage(error.data ? JSON.stringify(error.data) : 'Registration failed')
+      setMessage(formatAuthError(error.data, 'Не удалось создать аккаунт'))
     } finally {
       setLoading(false)
     }
@@ -374,8 +385,8 @@ function AppContent() {
   }
 
   return (
-    <div className={isStoreHome ? 'store-shell' : 'app-shell'}>
-        {isAuthenticated && !isStoreHome && (
+    <div className={isStoreFront ? 'store-shell' : 'app-shell'}>
+        {isAuthenticated && !isStoreFront && (
           <header className="app-header">
             <div>
               <h1>Менеджер Задач</h1>
@@ -396,8 +407,8 @@ function AppContent() {
           </header>
         )}
 
-        <main className={isStoreHome ? 'store-main' : 'app-main'}>
-          {message && !isStoreHome && <div className="message">{message}</div>}
+        <main className={isStoreFront ? 'store-main' : 'app-main'}>
+          {message && !isStoreFront && <div className="message">{message}</div>}
 
           <Routes>
             <Route
@@ -407,6 +418,11 @@ function AppContent() {
                   user={user}
                   isAuthenticated={isAuthenticated}
                   onLogout={handleLogout}
+                  onLogin={handleLogin}
+                  onRegister={handleRegister}
+                  loading={loading}
+                  message={message}
+                  setMessage={setMessage}
                 />
               }
             />
@@ -414,9 +430,15 @@ function AppContent() {
               path="/login"
               element={
                 !isAuthenticated ? (
-                  <LoginPage onLogin={handleLogin} loading={loading} message={message} setMessage={setMessage} />
+                  <LoginPage
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                    loading={loading}
+                    message={message}
+                    setMessage={setMessage}
+                  />
                 ) : (
-                  <Navigate to="/tasks" replace />
+                  <Navigate to="/" replace />
                 )
               }
             />
@@ -424,9 +446,15 @@ function AppContent() {
               path="/register"
               element={
                 !isAuthenticated ? (
-                  <RegisterPage onRegister={handleRegister} loading={loading} message={message} setMessage={setMessage} />
+                  <RegisterPage
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                    loading={loading}
+                    message={message}
+                    setMessage={setMessage}
+                  />
                 ) : (
-                  <Navigate to="/tasks" replace />
+                  <Navigate to="/" replace />
                 )
               }
             />

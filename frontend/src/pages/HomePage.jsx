@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StoreProductCard from '../components/StoreProductCard.jsx'
+import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
 import { fetchProducts, fetchProductsByCategory } from '../api'
 import '../styles/HomePage.css'
 
@@ -104,7 +105,16 @@ function matchesQuery(product, query) {
   return haystack.includes(query)
 }
 
-export default function HomePage({ user, isAuthenticated, onLogout }) {
+export default function HomePage({
+  user,
+  isAuthenticated,
+  onLogout,
+  onLogin,
+  onRegister,
+  loading,
+  message,
+  setMessage,
+}) {
   const [products, setProducts] = useState([])
   const [heroIndex, setHeroIndex] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -220,25 +230,31 @@ export default function HomePage({ user, isAuthenticated, onLogout }) {
 
           <div className="store-header__actions">
             <button type="button" className="store-icon-btn" onClick={() => setSearchOpen((open) => !open)} aria-label="Поиск">
-              ⌕
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M16 16.5 20.5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
-            {isAuthenticated ? (
-              <Link className="store-icon-btn" to="/tasks" aria-label="Аккаунт">
-                {user?.username?.[0]?.toUpperCase() || 'A'}
-              </Link>
-            ) : (
-              <Link className="store-icon-btn" to="/login" aria-label="Войти">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <circle cx="12" cy="8" r="3.2" />
-                  <path d="M5 19c1.5-3.2 4-5 7-5s5.5 1.8 7 5" />
-                </svg>
-              </Link>
-            )}
+            <StoreAccountMenu
+              isAuthenticated={isAuthenticated}
+              user={user}
+              onLogout={onLogout}
+              onLogin={onLogin}
+              onRegister={onRegister}
+              loading={loading}
+              message={message}
+              setMessage={setMessage}
+            />
             <a className="store-icon-btn" href="#novinki" aria-label="Корзина">
-              ☐
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 8h12l-1 11H7L6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </a>
             <button type="button" className="store-icon-btn store-burger" onClick={() => setMenuOpen((open) => !open)} aria-label="Меню">
-              ☰
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
         </div>
@@ -513,7 +529,10 @@ export default function HomePage({ user, isAuthenticated, onLogout }) {
               Выйти ({user?.username})
             </button>
           ) : (
-            <Link to="/login">Вход / регистрация</Link>
+            <div className="store-footer__auth-links">
+              <Link to="/register">Регистрация</Link>
+              <Link to="/login">Вход</Link>
+            </div>
           )}
         </div>
       </footer>
