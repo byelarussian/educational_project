@@ -11,6 +11,7 @@ export default function CategoriesPage({
   editingCategory,
   onEditCategory,
   onCancelEdit,
+  formResetKey = 0,
 }) {
   return (
     <section className="tasks-page">
@@ -25,6 +26,7 @@ export default function CategoriesPage({
 
       <div className="task-grid">
         <CategoryForm
+          key={editingCategory ? `edit-${editingCategory.id}` : `create-${formResetKey}`}
           category={editingCategory}
           onSubmit={editingCategory ? (form) => onUpdateCategory(editingCategory.id, form) : onCreateCategory}
           onCancel={onCancelEdit}

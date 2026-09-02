@@ -1,35 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-const initialForm = {
-  title: '',
-  description: '',
-  priority: 'medium',
-  status: 'todo',
-  due_date: '',
-  category_ids: [],
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function toDatetimeLocalValue(isoString) {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function fromDatetimeLocalValue(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
+}
+
+function taskToForm(task) {
+  if (!task) {
+    return {
+      title: '',
+      description: '',
+      priority: 'medium',
+      status: 'todo',
+      due_date: '',
+      category_ids: [],
+    }
+  }
+
+  return {
+    title: task.title || '',
+    description: task.description || '',
+    priority: task.priority || 'medium',
+    status: task.status || 'todo',
+    due_date: toDatetimeLocalValue(task.due_date),
+    category_ids: task.categories?.map((category) => category.id) || [],
+  }
 }
 
 export default function TaskForm({ task, categories, onSubmit, onCancel, loading }) {
-  const [form, setForm] = useState(initialForm)
-
-  useEffect(() => {
-    if (task) {
-      setForm({
-        title: task.title || '',
-        description: task.description || '',
-        priority: task.priority || 'medium',
-        status: task.status || 'todo',
-        due_date: task.due_date ? task.due_date.replace('Z', '') : '',
-        category_ids: task.categories?.map((category) => category.id) || [],
-      })
-    } else {
-      setForm(initialForm)
-    }
-  }, [task])
+  const [form, setForm] = useState(() => taskToForm(task))
 
   function handleSubmit(event) {
     event.preventDefault()
-    onSubmit(form)
+    onSubmit({
+      ...form,
+      due_date: fromDatetimeLocalValue(form.due_date),
+    })
   }
 
   return (

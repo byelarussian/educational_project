@@ -1,25 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-const initialForm = {
-  name: '',
-  description: '',
-  color: '#007bff',
+function categoryToForm(category) {
+  if (!category) {
+    return {
+      name: '',
+      description: '',
+      color: '#007bff',
+    }
+  }
+
+  return {
+    name: category.name || '',
+    description: category.description || '',
+    color: category.color || '#007bff',
+  }
 }
 
 export default function CategoryForm({ category, onSubmit, onCancel, loading }) {
-  const [form, setForm] = useState(initialForm)
-
-  useEffect(() => {
-    if (category) {
-      setForm({
-        name: category.name || '',
-        description: category.description || '',
-        color: category.color || '#007bff',
-      })
-    } else {
-      setForm(initialForm)
-    }
-  }, [category])
+  const [form, setForm] = useState(() => categoryToForm(category))
 
   function handleSubmit(event) {
     event.preventDefault()

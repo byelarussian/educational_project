@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import './App.css'
 import HomePage from './pages/HomePage.jsx'
@@ -24,21 +24,6 @@ import {
   updateTask,
 } from './api'
 
-const initialTaskForm = {
-  title: '',
-  description: '',
-  priority: 'medium',
-  status: 'todo',
-  due_date: '',
-  category_ids: [],
-}
-
-const initialCategoryForm = {
-  name: '',
-  description: '',
-  color: '#007bff',
-}
-
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
@@ -54,41 +39,12 @@ function App() {
   const [productPagination, setProductPagination] = useState({ next: null, previous: null, count: 0 })
   const [editingTask, setEditingTask] = useState(null)
   const [editingCategory, setEditingCategory] = useState(null)
+  const [taskFormResetKey, setTaskFormResetKey] = useState(0)
+  const [categoryFormResetKey, setCategoryFormResetKey] = useState(0)
 
   const isAuthenticated = Boolean(token && user)
 
-  useEffect(() => {
-    if (token) {
-      loadCurrentUser()
-    }
-  }, [token])
-
-  useEffect(() => {
-    if (token) {
-      loadTasks()
-      loadProducts()
-    }
-  }, [token, taskPage, taskSearch, productPage])
-
-  async function loadCurrentUser() {
-    setLoading(true)
-    try {
-      const me = await fetchMe()
-      setUser(me)
-      await loadCategories()
-      await loadTasks()
-    } catch (error) {
-      setMessage('Session expired or backend unavailable. Please login again.')
-      localStorage.removeItem('token')
-      setToken('')
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function loadTasks() {
-    setLoading(true)
+  const loadTasks = useCallback(async () => {
     try {
       const response = await fetchTasks({ page: taskPage, search: taskSearch })
       setTasks(response.results || [])
@@ -99,39 +55,126 @@ function App() {
       })
     } catch (error) {
       setMessage(error.data?.detail || 'Failed to load tasks')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [taskPage, taskSearch])
 
-  async function loadCategories() {
-    setLoading(true)
+  const loadCategories = useCallback(async () => {
     try {
       const response = await fetchCategories()
       setCategories(response.results || [])
     } catch (error) {
       setMessage(error.data?.detail || 'Failed to load categories')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [])
 
-  async function loadProducts() {
-    setLoading(true)
-    try {
-      const response = await fetchProducts({ page: productPage })
-      setProducts(response.results || [])
-      setProductPagination({
-        next: response.next,
-        previous: response.previous,
-        count: response.count,
-      })
-    } catch (error) {
-      setMessage(error.data?.detail || 'Failed to load products')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (!token) return undefined
+
+    let cancelled = false
+
+    async function loadCurrentUser() {
+      try {
+        const me = await fetchMe()
+        if (!cancelled) {
+          setUser(me)
+        }
+      } catch {
+        if (!cancelled) {
+          setMessage('Session expired or backend unavailable. Please login again.')
+          localStorage.removeItem('token')
+          setToken('')
+          setUser(null)
+        }
+      }
     }
-  }
+
+    loadCurrentUser()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return undefined
+
+    let cancelled = false
+
+    async function loadCategoryList() {
+      try {
+        const response = await fetchCategories()
+        if (!cancelled) {
+          setCategories(response.results || [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error.data?.detail || 'Failed to load categories')
+        }
+      }
+    }
+
+    loadCategoryList()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return undefined
+
+    let cancelled = false
+
+    async function loadTaskList() {
+      try {
+        const response = await fetchTasks({ page: taskPage, search: taskSearch })
+        if (!cancelled) {
+          setTasks(response.results || [])
+          setTaskPagination({
+            next: response.next,
+            previous: response.previous,
+            count: response.count,
+          })
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error.data?.detail || 'Failed to load tasks')
+        }
+      }
+    }
+
+    loadTaskList()
+    return () => {
+      cancelled = true
+    }
+  }, [token, taskPage, taskSearch])
+
+  useEffect(() => {
+    if (!token) return undefined
+
+    let cancelled = false
+
+    async function loadProductList() {
+      try {
+        const response = await fetchProducts({ page: productPage })
+        if (!cancelled) {
+          setProducts(response.results || [])
+          setProductPagination({
+            next: response.next,
+            previous: response.previous,
+            count: response.count,
+          })
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error.data?.detail || 'Failed to load products')
+        }
+      }
+    }
+
+    loadProductList()
+    return () => {
+      cancelled = true
+    }
+  }, [token, productPage])
 
   async function handleLogin(credentials) {
     setLoading(true)
@@ -141,8 +184,6 @@ function App() {
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      await loadCategories()
-      await loadTasks()
       setMessage('Login successful')
     } catch (error) {
       setMessage(error.data?.error || 'Login failed')
@@ -162,8 +203,6 @@ function App() {
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
-      await loadCategories()
-      await loadTasks()
       setMessage('Registration successful')
     } catch (error) {
       setMessage(error.data ? JSON.stringify(error.data) : 'Registration failed')
@@ -197,6 +236,7 @@ function App() {
         due_date: taskData.due_date || null,
       })
       setEditingTask(null)
+      setTaskFormResetKey((key) => key + 1)
       setMessage('Task created successfully')
       await loadTasks()
     } catch (error) {
@@ -215,6 +255,7 @@ function App() {
         due_date: taskData.due_date || null,
       })
       setEditingTask(null)
+      setTaskFormResetKey((key) => key + 1)
       setMessage('Task saved successfully')
       await loadTasks()
     } catch (error) {
@@ -258,6 +299,7 @@ function App() {
     try {
       await createCategory(categoryData)
       setEditingCategory(null)
+      setCategoryFormResetKey((key) => key + 1)
       setMessage('Category created successfully')
       await loadCategories()
     } catch (error) {
@@ -273,6 +315,7 @@ function App() {
     try {
       await updateCategory(categoryId, categoryData)
       setEditingCategory(null)
+      setCategoryFormResetKey((key) => key + 1)
       setMessage('Category updated')
       await loadCategories()
     } catch (error) {
@@ -407,6 +450,7 @@ function App() {
                     onStatusChange={handleStatusChange}
                     editingTask={editingTask}
                     onCancelEdit={handleCancelEditTask}
+                    formResetKey={taskFormResetKey}
                   />
                 ) : (
                   <Navigate to="/login" replace />
@@ -427,6 +471,7 @@ function App() {
                     editingCategory={editingCategory}
                     onEditCategory={handleEditCategory}
                     onCancelEdit={handleCancelEditCategory}
+                    formResetKey={categoryFormResetKey}
                   />
                 ) : (
                   <Navigate to="/login" replace />

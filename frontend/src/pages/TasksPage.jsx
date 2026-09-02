@@ -18,6 +18,7 @@ export default function TasksPage({
   onStatusChange,
   editingTask,
   onCancelEdit,
+  formResetKey = 0,
 }) {
   return (
     <section className="tasks-page">
@@ -40,6 +41,7 @@ export default function TasksPage({
 
       <div className="task-grid">
         <TaskForm
+          key={editingTask ? `edit-${editingTask.id}` : `create-${formResetKey}`}
           task={editingTask}
           categories={categories}
           onSubmit={editingTask ? (form) => onUpdateTask(editingTask.id, form) : onCreateTask}
