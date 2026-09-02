@@ -38,6 +38,8 @@ export default function LoginPage({ onLogin, loading, message, setMessage }) {
         </button>
       </form>
       <p className="form-footer">
+        <Link to="/">На главную</Link>
+        {' · '}
         Новичок? <Link to="/register">Создать аккаунт</Link>
       </p>
     </section>

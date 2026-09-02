@@ -69,9 +69,18 @@ export function fetchCategories({ page, search } = {}) {
   return request(`/categories/${query}`)
 }
 
-export function fetchProducts({ page, search } = {}) {
-  const query = buildQuery({ page, search })
+export function fetchProducts({ page, search, ordering } = {}) {
+  const query = buildQuery({ page, search, ordering })
   return request(`/products/${query}`)
+}
+
+export function fetchProductCategories({ page, search } = {}) {
+  const query = buildQuery({ page, search })
+  return request(`/product-categories/${query}`)
+}
+
+export function fetchProductsByCategory() {
+  return request('/products/by_category/')
 }
 
 export function createTask(data) {

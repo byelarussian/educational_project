@@ -71,6 +71,8 @@ export default function RegisterPage({ onRegister, loading, message, setMessage 
         </button>
       </form>
       <p className="form-footer">
+        <Link to="/">На главную</Link>
+        {' · '}
         Уже есть аккаунт? <Link to="/login">Войти</Link>
       </p>
     </section>

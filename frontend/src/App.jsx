@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
 import './App.css'
 import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -25,6 +25,16 @@ import {
 } from './api'
 
 function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  )
+}
+
+function AppContent() {
+  const location = useLocation()
+  const isStoreHome = location.pathname === '/'
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
   const [tasks, setTasks] = useState([])
@@ -364,9 +374,8 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <div className="app-shell">
-        {isAuthenticated && (
+    <div className={isStoreHome ? 'store-shell' : 'app-shell'}>
+        {isAuthenticated && !isStoreHome && (
           <header className="app-header">
             <div>
               <h1>Менеджер Задач</h1>
@@ -374,6 +383,7 @@ function App() {
             </div>
             <div className="header-actions">
               <nav className="main-nav">
+                <Link to="/">Магазин</Link>
                 <Link to="/tasks">Задачи</Link>
                 <Link to="/categories">Категории</Link>
                 <Link to="/products">Товары</Link>
@@ -386,24 +396,18 @@ function App() {
           </header>
         )}
 
-        <main className="app-main">
-          {message && <div className="message">{message}</div>}
+        <main className={isStoreHome ? 'store-main' : 'app-main'}>
+          {message && !isStoreHome && <div className="message">{message}</div>}
 
           <Routes>
             <Route
               path="/"
               element={
-                isAuthenticated ? (
-                  <Navigate to="/tasks" replace />
-                ) : (
-                  <HomePage
-                    onLogin={handleLogin}
-                    onRegister={handleRegister}
-                    loading={loading}
-                    message={message}
-                    setMessage={setMessage}
-                  />
-                )
+                <HomePage
+                  user={user}
+                  isAuthenticated={isAuthenticated}
+                  onLogout={handleLogout}
+                />
               }
             />
             <Route
@@ -500,7 +504,6 @@ function App() {
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
   )
 }
 
