@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 import HomePage from './pages/HomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
+import CabinetPage from './pages/CabinetPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
 import CategoriesPage from './pages/CategoriesPage.jsx'
 import ProductsPage from './pages/ProductsPage.jsx'
 import {
+  addToCart,
   changeTaskStatus,
   createCategory,
   createTask,
   deleteCategory,
   deleteTask,
+  fetchCart,
   fetchCategories,
   fetchMe,
   fetchProducts,
@@ -24,6 +27,10 @@ import {
   updateTask,
 } from './api'
 
+/**
+ * Превращает тело ошибки API в одну строку для пользователя.
+ * Строка или поля error/detail берутся как есть; иначе склеиваются ошибки валидации полей.
+ */
 function formatAuthError(data, fallback) {
   if (!data) return fallback
   if (typeof data === 'string') return data
@@ -35,6 +42,7 @@ function formatAuthError(data, fallback) {
     .join(' ')
 }
 
+/** Корневой компонент: включает BrowserRouter, чтобы вложенный AppContent мог ходить по URL. */
 function App() {
   return (
     <BrowserRouter>
@@ -43,11 +51,17 @@ function App() {
   )
 }
 
+/**
+ * Оболочка приложения: хранит токен, пользователя, корзину, задачи и категории,
+ * грузит данные с API и раздаёт обработчики страницам через props.
+ */
 function AppContent() {
   const location = useLocation()
-  const isStoreFront = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register'
+  const navigate = useNavigate()
+  const isStoreFront = ['/', '/login', '/register', '/cabinet'].includes(location.pathname)
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
+  const [cart, setCart] = useState({ items: [], total: '0', count: 0 })
   const [tasks, setTasks] = useState([])
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -65,6 +79,21 @@ function AppContent() {
 
   const isAuthenticated = Boolean(token && user)
 
+  /** Загружает корзину текущего пользователя; при ошибке показывает пустую. */
+  const loadCart = useCallback(async () => {
+    try {
+      const response = await fetchCart()
+      setCart({
+        items: response.items || [],
+        total: response.total || '0',
+        count: response.count || 0,
+      })
+    } catch {
+      setCart({ items: [], total: '0', count: 0 })
+    }
+  }, [])
+
+  /** Подгружает страницу задач с учётом поиска и номера страницы. */
   const loadTasks = useCallback(async () => {
     try {
       const response = await fetchTasks({ page: taskPage, search: taskSearch })
@@ -79,6 +108,7 @@ function AppContent() {
     }
   }, [taskPage, taskSearch])
 
+  /** Подгружает список категорий задач. */
   const loadCategories = useCallback(async () => {
     try {
       const response = await fetchCategories()
@@ -93,6 +123,7 @@ function AppContent() {
 
     let cancelled = false
 
+    /** По токену запрашивает /users/me/; если сессия мертва — сбрасывает логин. */
     async function loadCurrentUser() {
       try {
         const me = await fetchMe()
@@ -105,6 +136,7 @@ function AppContent() {
           localStorage.removeItem('token')
           setToken('')
           setUser(null)
+          setCart({ items: [], total: '0', count: 0 })
         }
       }
     }
@@ -120,6 +152,7 @@ function AppContent() {
 
     let cancelled = false
 
+    /** Первичная загрузка категорий после появления токена (с отменой при размонтировании). */
     async function loadCategoryList() {
       try {
         const response = await fetchCategories()
@@ -144,6 +177,7 @@ function AppContent() {
 
     let cancelled = false
 
+    /** Первичная и повторная загрузка задач при смене страницы/поиска. */
     async function loadTaskList() {
       try {
         const response = await fetchTasks({ page: taskPage, search: taskSearch })
@@ -173,6 +207,7 @@ function AppContent() {
 
     let cancelled = false
 
+    /** Страница товаров админки задачника (/products), не витрина магазина. */
     async function loadProductList() {
       try {
         const response = await fetchProducts({ page: productPage })
@@ -197,6 +232,16 @@ function AppContent() {
     }
   }, [token, productPage])
 
+  useEffect(() => {
+    if (!token) {
+      setCart({ items: [], total: '0', count: 0 })
+      return undefined
+    }
+    loadCart()
+    return undefined
+  }, [token, loadCart])
+
+  /** Вход: сохраняет токен в localStorage и кладёт user в state. */
   async function handleLogin(credentials) {
     setLoading(true)
     setMessage('')
@@ -213,6 +258,7 @@ function AppContent() {
     }
   }
 
+  /** Регистрация: создаёт аккаунт, логинит и переводит в кабинет. */
   async function handleRegister(formData) {
     setLoading(true)
     setMessage('')
@@ -225,6 +271,7 @@ function AppContent() {
       setToken(response.token)
       setUser(response.user)
       setMessage('Регистрация прошла успешно')
+      navigate('/cabinet')
     } catch (error) {
       setMessage(formatAuthError(error.data, 'Не удалось создать аккаунт'))
     } finally {
@@ -232,6 +279,7 @@ function AppContent() {
     }
   }
 
+  /** Выход: просит сервер удалить токен и очищает локальное состояние. */
   async function handleLogout() {
     setLoading(true)
     try {
@@ -242,12 +290,14 @@ function AppContent() {
     localStorage.removeItem('token')
     setToken('')
     setUser(null)
+    setCart({ items: [], total: '0', count: 0 })
     setTasks([])
     setCategories([])
     setMessage('Logged out')
     setLoading(false)
   }
 
+  /** Создаёт задачу и сбрасывает форму (через formResetKey). */
   async function handleCreateTask(taskData) {
     setLoading(true)
     setMessage('')
@@ -267,6 +317,7 @@ function AppContent() {
     }
   }
 
+  /** Сохраняет правки задачи и выходит из режима редактирования. */
   async function handleUpdateTask(taskId, taskData) {
     setLoading(true)
     setMessage('')
@@ -286,6 +337,7 @@ function AppContent() {
     }
   }
 
+  /** Удаляет задачу и обновляет список. */
   async function handleDeleteTask(taskId) {
     setLoading(true)
     setMessage('')
@@ -300,6 +352,7 @@ function AppContent() {
     }
   }
 
+  /** Меняет статус задачи (в работе / готово) отдельным эндпоинтом. */
   async function handleStatusChange(taskId, status) {
     setLoading(true)
     setMessage('')
@@ -314,6 +367,7 @@ function AppContent() {
     }
   }
 
+  /** Создаёт категорию задач и сбрасывает форму. */
   async function handleCreateCategory(categoryData) {
     setLoading(true)
     setMessage('')
@@ -330,6 +384,7 @@ function AppContent() {
     }
   }
 
+  /** Сохраняет правки категории задач. */
   async function handleUpdateCategory(categoryId, categoryData) {
     setLoading(true)
     setMessage('')
@@ -346,6 +401,7 @@ function AppContent() {
     }
   }
 
+  /** Удаляет категорию и перезагружает и категории, и задачи (связи могли измениться). */
   async function handleDeleteCategory(categoryId) {
     setLoading(true)
     setMessage('')
@@ -362,26 +418,67 @@ function AppContent() {
     }
   }
 
+  /** Открывает форму редактирования выбранной задачи. */
   function handleEditTask(task) {
     setEditingTask(task)
   }
 
+  /** Закрывает форму редактирования задачи без сохранения. */
   function handleCancelEditTask() {
     setEditingTask(null)
   }
 
+  /** Открывает форму редактирования выбранной категории. */
   function handleEditCategory(category) {
     setEditingCategory(category)
   }
 
+  /** Закрывает форму редактирования категории без сохранения. */
   function handleCancelEditCategory() {
     setEditingCategory(null)
   }
 
+  /** Переключает страницу списка задач, игнорируя номера меньше 1. */
   function handlePageChange(newPage) {
     if (newPage >= 1) {
       setTaskPage(newPage)
     }
+  }
+
+  /** Добавляет товар в корзину; гостя отправляет на /login. Возвращает { ok } для карточки. */
+  async function handleAddToCart(product) {
+    if (!isAuthenticated) {
+      setMessage('Войдите, чтобы добавить товар в корзину')
+      navigate('/login')
+      return { ok: false, message: 'Войдите, чтобы добавить товар в корзину' }
+    }
+
+    try {
+      const nextCart = await addToCart({ product_id: product.id, quantity: 1 })
+      setCart({
+        items: nextCart.items || [],
+        total: nextCart.total || '0',
+        count: nextCart.count || 0,
+      })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, message: error.data?.error || 'Не удалось добавить товар' }
+    }
+  }
+
+  /** Подменяет токен после смены пароля, чтобы старый ключ больше не использовался. */
+  function handleTokenChange(nextToken) {
+    localStorage.setItem('token', nextToken)
+    setToken(nextToken)
+  }
+
+  /** Синхронизирует state корзины с ответом API (кабинет: количество, удаление, checkout). */
+  function handleCartChange(nextCart) {
+    setCart({
+      items: nextCart?.items || [],
+      total: nextCart?.total || '0',
+      count: nextCart?.count || 0,
+    })
   }
 
   return (
@@ -423,6 +520,8 @@ function AppContent() {
                   loading={loading}
                   message={message}
                   setMessage={setMessage}
+                  cartCount={cart.count}
+                  onAddToCart={handleAddToCart}
                 />
               }
             />
@@ -454,7 +553,34 @@ function AppContent() {
                     setMessage={setMessage}
                   />
                 ) : (
-                  <Navigate to="/" replace />
+                  <Navigate to="/cabinet" replace />
+                )
+              }
+            />
+            <Route
+              path="/cabinet"
+              element={
+                token && !user ? (
+                  <div className="store-page cabinet-page">
+                    <p className="cabinet-loading">Загрузка кабинета…</p>
+                  </div>
+                ) : isAuthenticated ? (
+                  <CabinetPage
+                    user={user}
+                    cart={cart}
+                    loading={loading}
+                    message={message}
+                    setMessage={setMessage}
+                    onUserUpdate={setUser}
+                    onCartChange={handleCartChange}
+                    onTokenChange={handleTokenChange}
+                    onLogout={handleLogout}
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                    isAuthenticated={isAuthenticated}
+                  />
+                ) : (
+                  <Navigate to="/login" replace />
                 )
               }
             />
