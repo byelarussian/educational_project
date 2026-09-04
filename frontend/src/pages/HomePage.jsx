@@ -100,11 +100,17 @@ const ARTICLES = [
   },
 ]
 
+/**
+ * Проверяет, подходит ли товар под строку поиска (название, бренд, тег, без учёта регистра).
+ */
 function matchesQuery(product, query) {
   const haystack = `${product.title} ${product.brand} ${product.tag}`.toLowerCase()
   return haystack.includes(query)
 }
 
+/**
+ * Главная витрина FAM.CAP: шапка, слайдер, каталог с API, поиск, подписка и добавление в корзину.
+ */
 export default function HomePage({
   user,
   isAuthenticated,
@@ -114,6 +120,8 @@ export default function HomePage({
   loading,
   message,
   setMessage,
+  cartCount = 0,
+  onAddToCart,
 }) {
   const [products, setProducts] = useState([])
   const [heroIndex, setHeroIndex] = useState(0)
@@ -122,10 +130,12 @@ export default function HomePage({
   const [menuOpen, setMenuOpen] = useState(false)
   const [subscribeEmail, setSubscribeEmail] = useState('')
   const [subscribeMessage, setSubscribeMessage] = useState('')
+  const [cartNotice, setCartNotice] = useState('')
 
   useEffect(() => {
     let cancelled = false
 
+    /** Грузит товары группировкой by_category; если эндпоинт недоступен — берёт обычный список /products/. */
     async function loadStoreProducts() {
       try {
         const grouped = await fetchProductsByCategory()
@@ -175,10 +185,18 @@ export default function HomePage({
     .slice(0, 8)
   const saleProducts = filteredProducts.filter((product) => (product.tag || '').toLowerCase().includes('скид')).slice(0, 8)
 
+  /** Имитация подписки на рассылку: показывает успех и очищает поле email. */
   function handleSubscribe(event) {
     event.preventDefault()
     setSubscribeMessage('Данные успешно отправлены!')
     setSubscribeEmail('')
+  }
+
+  /** Кладёт товар в корзину через колбэк App и на 2 секунды показывает уведомление. */
+  async function handleAddProduct(product) {
+    const result = await onAddToCart?.(product)
+    setCartNotice(result?.ok ? 'Товар добавлен в корзину' : result?.message || '')
+    window.setTimeout(() => setCartNotice(''), 2200)
   }
 
   const slide = HERO_SLIDES[heroIndex]
@@ -245,12 +263,17 @@ export default function HomePage({
               message={message}
               setMessage={setMessage}
             />
-            <a className="store-icon-btn" href="#novinki" aria-label="Корзина">
+            <Link
+              className="store-icon-btn store-icon-btn--cart"
+              to={isAuthenticated ? '/cabinet?tab=cart' : '/login'}
+              aria-label="Корзина"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M6 8h12l-1 11H7L6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
                 <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
-            </a>
+              {cartCount ? <span className="store-cart-badge">{cartCount}</span> : null}
+            </Link>
             <button type="button" className="store-icon-btn store-burger" onClick={() => setMenuOpen((open) => !open)} aria-label="Меню">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -331,12 +354,15 @@ export default function HomePage({
         </div>
       </section>
 
+      {cartNotice ? <p className="store-cart-notice">{cartNotice}</p> : null}
+
       <ProductRail
         id="novinki"
         title="Новинки"
         tag="New"
         description="Самые свежие новинки головных уборов от известных мировых брендов в FAM"
         products={novelties}
+        onAddToCart={handleAddProduct}
       />
 
       <section className="store-about" id="about">
@@ -365,6 +391,7 @@ export default function HomePage({
         tag="Best"
         description="Ваш выбор, лучшие из лучших"
         products={bestsellers.length ? bestsellers : novelties}
+        onAddToCart={handleAddProduct}
       />
 
       <section className="store-guide">
@@ -379,6 +406,7 @@ export default function HomePage({
         title="New Era"
         description="Американский культовый бренд со 100-летней историей, те самые бейсболки с бейсбольных стадионов и из музыкальных клипов."
         products={newEraProducts.length ? newEraProducts : novelties}
+        onAddToCart={handleAddProduct}
       />
 
       <ProductRail
@@ -386,6 +414,7 @@ export default function HomePage({
         title="Скидки"
         description="Честные цены на оригинальные модели"
         products={saleProducts.length ? saleProducts : filteredProducts.slice(-8)}
+        onAddToCart={handleAddProduct}
       />
 
       <section className="store-dark">
@@ -540,7 +569,10 @@ export default function HomePage({
   )
 }
 
-function ProductRail({ id, title, tag, description, products }) {
+/**
+ * Горизонтальная полка товаров на главной: заголовок, описание и сетка карточек StoreProductCard.
+ */
+function ProductRail({ id, title, tag, description, products, onAddToCart }) {
   return (
     <section className="store-rail" id={id}>
       <div className="store-rail__header">
@@ -553,7 +585,7 @@ function ProductRail({ id, title, tag, description, products }) {
       {products.length ? (
         <div className="store-rail__grid">
           {products.map((product) => (
-            <StoreProductCard key={product.id} product={product} />
+            <StoreProductCard key={product.id} product={product} onAddToCart={onAddToCart} />
           ))}
         </div>
       ) : (

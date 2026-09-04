@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
 import '../styles/HomePage.css'
 
+/** Страница /login: шапка магазина и сразу открытая модалка входа. */
 export default function LoginPage({ onLogin, onRegister, loading, message, setMessage }) {
   return (
     <div className="store-page store-auth-page">

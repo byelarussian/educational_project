@@ -1,6 +1,10 @@
 import TaskForm from '../components/TaskForm.jsx'
 import TaskList from '../components/TaskList.jsx'
 
+/**
+ * Страница задач: поиск, форма создания/правки и список с пагинацией.
+ * Сами запросы к API делает App, сюда приходят данные и колбэки.
+ */
 export default function TasksPage({
   tasks,
   categories,

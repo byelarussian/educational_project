@@ -1,5 +1,6 @@
 import ProductList from '../components/ProductList.jsx'
 
+/** Служебный список товаров из БД с пагинацией (не витрина FAM.CAP). */
 export default function ProductsPage({ products, loading, message, page, pagination, onPageChange }) {
   return (
     <section className="products-page">

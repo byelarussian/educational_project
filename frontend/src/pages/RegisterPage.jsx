@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
 import '../styles/HomePage.css'
 
+/** Страница /register: шапка магазина и сразу открытая модалка регистрации. */
 export default function RegisterPage({ onLogin, onRegister, loading, message, setMessage }) {
   return (
     <div className="store-page store-auth-page">

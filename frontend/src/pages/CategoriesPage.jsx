@@ -1,6 +1,7 @@
 import CategoryForm from '../components/CategoryForm.jsx'
 import CategoryList from '../components/CategoryList.jsx'
 
+/** Страница категорий задач: форма слева, список справа, без своей загрузки данных. */
 export default function CategoriesPage({
   categories,
   loading,
