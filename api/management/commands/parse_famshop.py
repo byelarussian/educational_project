@@ -7,9 +7,14 @@ from api.models import Product, ProductCategory
 
 
 class Command(BaseCommand):
+    """Management-команда: скачивает категории famshop.ru и складывает товары в БД.
+
+    Запуск: python manage.py parse_famshop [--max-pages 5] [--category-urls URL ...]
+    """
     help = 'Parse famshop.ru categories and products into the local database'
 
     def add_arguments(self, parser):
+        """Добавляет CLI-флаги: список URL категорий и лимит страниц на категорию."""
         parser.add_argument(
             '--category-urls',
             nargs='*',
@@ -27,6 +32,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Точка входа команды: обходит каждую категорию и парсит её страницы."""
         category_urls = options['category_urls']
         max_pages = options['max_pages']
 
@@ -36,6 +42,7 @@ class Command(BaseCommand):
             self.parse_category(category, category_url, max_pages)
 
     def get_or_create_category(self, category_url):
+        """Находит или создаёт ProductCategory по slug из URL; обновляет url, если он изменился."""
         name = self.extract_category_name(category_url)
         slug = self.slugify(name)
         category, created = ProductCategory.objects.get_or_create(
@@ -48,14 +55,17 @@ class Command(BaseCommand):
         return category
 
     def extract_category_name(self, category_url):
+        """Достаёт человекочитаемое имя категории из последнего сегмента URL."""
         path = category_url.rstrip('/').split('/')[-1]
         path = path.replace('product-category', '')
         return path.replace('-', ' ').strip() or 'famshop'
 
     def slugify(self, value):
+        """Превращает строку в slug: нижний регистр, только латиница, цифры и дефисы."""
         return re.sub(r'[^a-z0-9-]+', '-', value.lower()).strip('-')
 
     def parse_category(self, category, category_url, max_pages):
+        """Листает страницы категории, вытаскивает карточки товаров и сохраняет их."""
         page = 1
         while page <= max_pages:
             url = category_url if page == 1 else self.build_page_url(category_url, page)
@@ -73,9 +83,11 @@ class Command(BaseCommand):
             page += 1
 
     def build_page_url(self, category_url, page):
+        """Собирает URL пагинации WooCommerce: .../page/2/, .../page/3/ и т.д."""
         return category_url.rstrip('/') + f'/page/{page}/'
 
     def fetch_html(self, url):
+        """Скачивает HTML страницы; при ошибке сети пишет в stderr и возвращает None."""
         try:
             with urllib.request.urlopen(url, timeout=20) as resp:
                 return resp.read().decode('utf-8', errors='replace')
@@ -84,6 +96,7 @@ class Command(BaseCommand):
             return None
 
     def extract_products(self, html):
+        """Парсит блоки <li class="product-card"> и собирает словари с полями товара."""
         product_blocks = re.findall(r'<li class="product-card">(.*?)</li>', html, re.S)
         products = []
         for block in product_blocks:
@@ -116,13 +129,16 @@ class Command(BaseCommand):
         return products
 
     def extract_first_match(self, text, pattern, flags=0):
+        """Возвращает первую группу regex или пустую строку, если совпадения нет."""
         match = re.search(pattern, text, flags)
         return match.group(1).strip() if match else ''
 
     def clean_text(self, value):
+        """Убирает HTML-теги и лишние переводы строк из куска разметки."""
         return re.sub(r'<[^>]+>', '', value or '').replace('\n', ' ').replace('\r', ' ').strip()
 
     def parse_price(self, value):
+        """Превращает строку цены ('4 500,00') в float или None, если разобрать нельзя."""
         if not value:
             return None
         normalized = value.replace(' ', '').replace(',', '.')
@@ -132,6 +148,7 @@ class Command(BaseCommand):
             return None
 
     def save_product(self, data, category):
+        """Создаёт товар или обновляет его по уникальному product_url и привязывает к категории."""
         product, created = Product.objects.update_or_create(
             product_url=data['product_url'],
             defaults={
