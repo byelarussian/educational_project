@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'django_filters',
-    'api',
+    # ApiConfig.ready() подключает signals: новый User сразу получает UserProfile
+    'api.apps.ApiConfig',
 ]
 
 MIDDLEWARE = [
