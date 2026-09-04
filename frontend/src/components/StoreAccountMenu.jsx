@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import StoreAuthModal from './StoreAuthModal.jsx'
 
+/** SVG-иконка силуэта пользователя на кнопке входа в шапке. */
 function UserIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -11,6 +12,11 @@ function UserIcon() {
   )
 }
 
+/**
+ * Меню аккаунта в шапке магазина.
+ * Гость: иконка открывает модалку входа/регистрации.
+ * Авторизованный: аватар с выпадающим списком «Кабинет» и «Выйти».
+ */
 export default function StoreAccountMenu({
   isAuthenticated,
   user,
@@ -30,6 +36,7 @@ export default function StoreAccountMenu({
   const location = useLocation()
 
   useEffect(() => {
+    /** Закрывает выпадающее меню, если клик был снаружи блока аккаунта. */
     function handlePointerDown(event) {
       if (rootRef.current && !rootRef.current.contains(event.target)) {
         setOpen(false)
@@ -54,7 +61,7 @@ export default function StoreAccountMenu({
         </button>
         {open ? (
           <div className="store-account__dropdown" role="menu">
-            <Link to="/tasks" role="menuitem" onClick={() => setOpen(false)}>
+            <Link to="/cabinet" role="menuitem" onClick={() => setOpen(false)}>
               Кабинет
             </Link>
             <button type="button" role="menuitem" onClick={onLogout}>

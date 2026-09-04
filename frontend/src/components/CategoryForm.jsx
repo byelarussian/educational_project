@@ -1,5 +1,8 @@
 import { useState } from 'react'
 
+/**
+ * Начальные значения формы категории: пустые при создании, из объекта — при правке.
+ */
 function categoryToForm(category) {
   if (!category) {
     return {
@@ -16,9 +19,13 @@ function categoryToForm(category) {
   }
 }
 
+/**
+ * Форма категории задач: название, описание и цвет-маркер.
+ */
 export default function CategoryForm({ category, onSubmit, onCancel, loading }) {
   const [form, setForm] = useState(() => categoryToForm(category))
 
+  /** Отдаёт текущие поля формы родителю (создание или обновление категории). */
   function handleSubmit(event) {
     event.preventDefault()
     onSubmit(form)

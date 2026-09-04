@@ -7,6 +7,10 @@ const emptyRegister = {
   password_confirm: '',
 }
 
+/**
+ * Модальное окно входа и регистрации поверх витрины.
+ * Закрывается по Escape, клику на фон и крестику; вкладки переключают формы.
+ */
 export default function StoreAuthModal({
   open,
   tab,
@@ -24,6 +28,7 @@ export default function StoreAuthModal({
   useEffect(() => {
     if (!open) return undefined
 
+    /** Escape закрывает модалку, пока она открыта. */
     function handleKeyDown(event) {
       if (event.key === 'Escape') onClose()
     }
@@ -34,12 +39,14 @@ export default function StoreAuthModal({
 
   if (!open) return null
 
+  /** Отправляет логин/пароль родителю без собственной валидации длины. */
   function handleLoginSubmit(event) {
     event.preventDefault()
     setMessage?.('')
     onLogin(loginData)
   }
 
+  /** Перед регистрацией проверяет длину пароля (≥8) и совпадение с подтверждением. */
   function handleRegisterSubmit(event) {
     event.preventDefault()
     setMessage?.('')

@@ -1,3 +1,4 @@
+/** Сетка товаров служебной страницы /products: фото, бренд, цена, ссылка на оригинал. */
 export default function ProductList({ products, loading }) {
   if (loading) {
     return <div className="empty-state">Loading products…</div>

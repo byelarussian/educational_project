@@ -1,3 +1,6 @@
+/**
+ * Список задач: карточка с тегами, сроком, категориями и кнопками Edit / Delete / статус.
+ */
 export default function TaskList({ tasks, onEdit, onDelete, onStatusChange, loading }) {
   if (tasks.length === 0) {
     return <div className="empty-state">No tasks yet. Add one to get started.</div>

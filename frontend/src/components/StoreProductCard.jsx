@@ -1,3 +1,6 @@
+/**
+ * Форматирует цену карточки витрины. Нет цены или NaN → «Цена по запросу».
+ */
 function formatPrice(price, currency) {
   if (price === null || price === undefined || price === '') {
     return 'Цена по запросу'
@@ -14,7 +17,10 @@ function formatPrice(price, currency) {
   })} ${currency || '₽'}`
 }
 
-export default function StoreProductCard({ product }) {
+/**
+ * Карточка товара на витрине: фото, бренд, цена, рассрочка 4 платежа и кнопка «В корзину».
+ */
+export default function StoreProductCard({ product, onAddToCart }) {
   const href = product.product_url || '#'
   const installments = product.price ? Number(product.price) / 4 : null
 
@@ -40,9 +46,15 @@ export default function StoreProductCard({ product }) {
           4 платежа по {formatPrice(installments, product.currency)}
         </p>
       ) : null}
-      <a className="store-product-card__cart" href={href} target="_blank" rel="noreferrer">
-        В корзину
-      </a>
+      {onAddToCart ? (
+        <button type="button" className="store-product-card__cart" onClick={() => onAddToCart(product)}>
+          В корзину
+        </button>
+      ) : (
+        <a className="store-product-card__cart" href={href} target="_blank" rel="noreferrer">
+          В корзину
+        </a>
+      )}
     </article>
   )
 }

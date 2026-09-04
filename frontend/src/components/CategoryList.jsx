@@ -1,3 +1,4 @@
+/** Список категорий задач с цветной меткой и кнопками Edit / Delete. */
 export default function CategoryList({ categories, onEdit, onDelete, loading }) {
   if (categories.length === 0) {
     return <div className="empty-state">No categories available yet.</div>

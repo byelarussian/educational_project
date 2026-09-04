@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+/** Правила ESLint для React/Vite: hooks, fast-refresh, игнор папки dist. */
 export default defineConfig([
   globalIgnores(['dist']),
   {
