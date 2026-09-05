@@ -1,20 +1,40 @@
+const DISPLAY_PRICES = [800, 1000, 1500]
+
 /**
- * Форматирует цену карточки витрины. Нет цены или NaN → «Цена по запросу».
+ * Стабильно выбирает одну из трёх цен (800 / 1000 / 1500 ₽) по id товара.
+ */
+function randomDisplayPrice(product) {
+  const seed = Number(product?.id)
+  const safeSeed = Number.isFinite(seed) && seed > 0
+    ? seed
+    : Array.from(String(product?.title || product?.product_url || 'fam'), (char) => char.charCodeAt(0))
+      .reduce((sum, code) => sum + code, 0)
+
+  return DISPLAY_PRICES[safeSeed % DISPLAY_PRICES.length]
+}
+
+/**
+ * Цена для карточки витрины: только 800, 1000 или 1500 ₽.
+ */
+function resolvePrice(product) {
+  return randomDisplayPrice(product)
+}
+
+/**
+ * Форматирует цену карточки витрины.
+ * HTML-сущность рубля из парсера FamShop превращается в символ ₽.
  */
 function formatPrice(price, currency) {
-  if (price === null || price === undefined || price === '') {
-    return 'Цена по запросу'
-  }
-
   const amount = Number(price)
-  if (Number.isNaN(amount)) {
-    return 'Цена по запросу'
-  }
+  const symbol = String(currency || '₽')
+    .replace(/ƃ/g, '₽')
+    .replace(/&#0*8381;/g, '₽')
+    .replace(/&amp;#0*8381;/g, '₽')
 
   return `${amount.toLocaleString('ru-RU', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ${currency || '₽'}`
+  })} ${symbol}`
 }
 
 /**
@@ -22,7 +42,8 @@ function formatPrice(price, currency) {
  */
 export default function StoreProductCard({ product, onAddToCart }) {
   const href = product.product_url || '#'
-  const installments = product.price ? Number(product.price) / 4 : null
+  const price = resolvePrice(product)
+  const installments = price / 4
 
   return (
     <article className="store-product-card">
@@ -40,12 +61,10 @@ export default function StoreProductCard({ product, onAddToCart }) {
           {product.title}
         </a>
       </h3>
-      <p className="store-product-card__price">{formatPrice(product.price, product.currency)}</p>
-      {installments ? (
-        <p className="store-product-card__installments">
-          4 платежа по {formatPrice(installments, product.currency)}
-        </p>
-      ) : null}
+      <p className="store-product-card__price">{formatPrice(price, product.currency || '₽')}</p>
+      <p className="store-product-card__installments">
+        4 платежа по {formatPrice(installments, product.currency || '₽')}
+      </p>
       {onAddToCart ? (
         <button type="button" className="store-product-card__cart" onClick={() => onAddToCart(product)}>
           В корзину
