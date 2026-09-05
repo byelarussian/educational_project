@@ -81,7 +81,7 @@ class AuthViewSet(viewsets.ViewSet):
         """POST /auth/logout/ — удаляет токен текущего пользователя, после этого запросы с ним не пройдут."""
         try:
             request.user.auth_token.delete()
-        except:
+        except Token.DoesNotExist:
             pass
         return Response({'message': 'Logged out successfully'})
 

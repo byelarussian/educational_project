@@ -79,20 +79,6 @@ function AppContent() {
 
   const isAuthenticated = Boolean(token && user)
 
-  /** Загружает корзину текущего пользователя; при ошибке показывает пустую. */
-  const loadCart = useCallback(async () => {
-    try {
-      const response = await fetchCart()
-      setCart({
-        items: response.items || [],
-        total: response.total || '0',
-        count: response.count || 0,
-      })
-    } catch {
-      setCart({ items: [], total: '0', count: 0 })
-    }
-  }, [])
-
   /** Подгружает страницу задач с учётом поиска и номера страницы. */
   const loadTasks = useCallback(async () => {
     try {
@@ -233,13 +219,33 @@ function AppContent() {
   }, [token, productPage])
 
   useEffect(() => {
-    if (!token) {
-      setCart({ items: [], total: '0', count: 0 })
-      return undefined
+    if (!token) return undefined
+
+    let cancelled = false
+
+    /** Загружает корзину текущего пользователя; при ошибке показывает пустую. */
+    async function loadCurrentCart() {
+      try {
+        const response = await fetchCart()
+        if (!cancelled) {
+          setCart({
+            items: response.items || [],
+            total: response.total || '0',
+            count: response.count || 0,
+          })
+        }
+      } catch {
+        if (!cancelled) {
+          setCart({ items: [], total: '0', count: 0 })
+        }
+      }
     }
-    loadCart()
-    return undefined
-  }, [token, loadCart])
+
+    loadCurrentCart()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   /** Вход: сохраняет токен в localStorage и кладёт user в state. */
   async function handleLogin(credentials) {

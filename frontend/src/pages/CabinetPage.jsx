@@ -34,6 +34,7 @@ const ORDER_STEPS = [
 function formatCurrency(currency) {
   if (!currency) return '₽'
   return String(currency)
+    .replace(/ƃ/g, '₽')
     .replace(/&#0*8381;/g, '₽')
     .replace(/&amp;#0*8381;/g, '₽')
 }
@@ -52,6 +53,40 @@ function formatPrice(price, currency = '₽') {
 }
 
 /** Дата заказа вида «04 сентября 2026» для списка в кабинете. */
+/** Поля профиля для формы кабинета из объекта пользователя. */
+function profileFromUser(user) {
+  return {
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  }
+}
+
+/** Адрес доставки для формы кабинета из объекта пользователя. */
+function addressFromUser(user) {
+  return {
+    city: user?.city || '',
+    street: user?.street || '',
+    apartment: user?.apartment || '',
+    postal_code: user?.postal_code || '',
+  }
+}
+
+/** Ключ, чтобы перезаполнить формы только когда с сервера пришли новые данные профиля. */
+function userFormKey(user) {
+  return [
+    user?.first_name,
+    user?.last_name,
+    user?.email,
+    user?.phone,
+    user?.city,
+    user?.street,
+    user?.apartment,
+    user?.postal_code,
+  ].join('|')
+}
+
 function formatDate(value) {
   if (!value) return ''
   return new Date(value).toLocaleDateString('ru-RU', {
@@ -120,38 +155,20 @@ export default function CabinetPage({
   const [orders, setOrders] = useState([])
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
-  const [profile, setProfile] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-  })
-  const [address, setAddress] = useState({
-    city: '',
-    street: '',
-    apartment: '',
-    postal_code: '',
-  })
+  const [profile, setProfile] = useState(() => profileFromUser(user))
+  const [address, setAddress] = useState(() => addressFromUser(user))
+  const [syncedUserKey, setSyncedUserKey] = useState(() => userFormKey(user))
   const [passwords, setPasswords] = useState({
     old_password: '',
     new_password: '',
     new_password_confirm: '',
   })
-
-  useEffect(() => {
-    setProfile({
-      first_name: user?.first_name || '',
-      last_name: user?.last_name || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-    })
-    setAddress({
-      city: user?.city || '',
-      street: user?.street || '',
-      apartment: user?.apartment || '',
-      postal_code: user?.postal_code || '',
-    })
-  }, [user])
+  const nextUserKey = userFormKey(user)
+  if (syncedUserKey !== nextUserKey) {
+    setSyncedUserKey(nextUserKey)
+    setProfile(profileFromUser(user))
+    setAddress(addressFromUser(user))
+  }
 
   useEffect(() => {
     let cancelled = false
