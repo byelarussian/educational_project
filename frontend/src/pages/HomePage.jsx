@@ -128,9 +128,19 @@ export default function HomePage({
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [subscribeEmail, setSubscribeEmail] = useState('')
-  const [subscribeMessage, setSubscribeMessage] = useState('')
   const [cartNotice, setCartNotice] = useState('')
+  const [legalDoc, setLegalDoc] = useState(null)
+
+  useEffect(() => {
+    if (!legalDoc) return undefined
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') setLegalDoc(null)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [legalDoc])
 
   useEffect(() => {
     let cancelled = false
@@ -185,13 +195,6 @@ export default function HomePage({
     .slice(0, 8)
   const saleProducts = filteredProducts.filter((product) => (product.tag || '').toLowerCase().includes('скид')).slice(0, 8)
 
-  /** Имитация подписки на рассылку: показывает успех и очищает поле email. */
-  function handleSubscribe(event) {
-    event.preventDefault()
-    setSubscribeMessage('Данные успешно отправлены!')
-    setSubscribeEmail('')
-  }
-
   /** Кладёт товар в корзину через колбэк App и на 2 секунды показывает уведомление. */
   async function handleAddProduct(product) {
     const result = await onAddToCart?.(product)
@@ -216,9 +219,6 @@ export default function HomePage({
             <a href="#catalog" className="store-nav__link">
               Головные уборы
             </a>
-            <a href="#catalog" className="store-nav__link">
-              Одежда и аксессуары
-            </a>
             <div className="store-nav__dropdown">
               <button type="button" className="store-nav__link">
                 Бренды
@@ -235,10 +235,7 @@ export default function HomePage({
               Скидки
             </a>
             <a href="#about" className="store-nav__link">
-              Информация
-            </a>
-            <a href="#store" className="store-nav__link">
-              Магазин в Москве
+              О нас
             </a>
           </nav>
 
@@ -330,17 +327,6 @@ export default function HomePage({
         </div>
       </section>
 
-      <section className="store-brands">
-        <h2 className="visually-hidden">Бренды</h2>
-        <div className="store-brands__row">
-          {BRANDS.concat(BRANDS).map((brand, index) => (
-            <span key={`${brand}-${index}`} className="store-brands__item">
-              {brand}
-            </span>
-          ))}
-        </div>
-      </section>
-
       <section className="store-categories" id="catalog">
         <h2 className="visually-hidden">Категории товаров</h2>
         <div className="store-categories__row">
@@ -366,23 +352,17 @@ export default function HomePage({
       />
 
       <section className="store-about" id="about">
+        <div className="store-about__media" aria-hidden="true" />
+        <div className="store-about__caps" aria-hidden="true" />
         <div className="store-about__panel">
           <p className="store-about__kicker">Больше, чем магазин.</p>
           <h2>
-            Твой гид
-            <br />в мире головных уборов
+            Твой гид в мире головных уборов
           </h2>
           <p className="store-about__text">Основан в 2016 году семьей любителей бейсболок</p>
           <a className="store-btn store-btn--white" href="#store">
             О магазине
           </a>
-        </div>
-        <div className="store-ticker" aria-hidden="true">
-          <div className="store-ticker__track">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <span key={index}>Клуб любителей бейсболок</span>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -393,14 +373,6 @@ export default function HomePage({
         products={bestsellers.length ? bestsellers : novelties}
         onAddToCart={handleAddProduct}
       />
-
-      <section className="store-guide">
-        <p>FAM подскажет</p>
-        <h2>Как выбрать бейсболку</h2>
-        <a className="store-btn store-btn--white" href="#novinki">
-          Подобрать
-        </a>
-      </section>
 
       <ProductRail
         title="New Era"
@@ -507,40 +479,13 @@ export default function HomePage({
       </section>
 
       <footer className="store-footer">
-        <form className="store-subscribe" onSubmit={handleSubscribe}>
-          <h2>Подпишись на рассылку и будь в курсе спец. предложений и новинок</h2>
-          <div className="store-subscribe__row">
-            <input
-              type="email"
-              placeholder="Email"
-              value={subscribeEmail}
-              onChange={(event) => setSubscribeEmail(event.target.value)}
-              required
-            />
-            <button type="submit" aria-label="Подписаться">
-              →
-            </button>
-          </div>
-          {subscribeMessage ? <p className="store-subscribe__ok">{subscribeMessage}</p> : null}
-        </form>
-
         <div className="store-footer__nav">
-          <span>Подарочные сертификаты</span>
-          <span>Таблицы размеров</span>
-          <span>Магазины в Москве</span>
-          <span>Рекомендации по уходу</span>
-          <span>Вопрос-ответ</span>
-          <span>Доставка</span>
-          <span>Оплата</span>
-          <span>Возврат</span>
-        </div>
-
-        <div className="store-ticker store-ticker--footer" aria-hidden="true">
-          <div className="store-ticker__track">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <span key={index}>Клуб любителей бейсболок</span>
-            ))}
-          </div>
+          <button type="button" className="store-footer__link" onClick={() => setLegalDoc('terms')}>
+            Пользовательское соглашение
+          </button>
+          <button type="button" className="store-footer__link" onClick={() => setLegalDoc('privacy')}>
+            Политика обработки персональных данных
+          </button>
         </div>
 
         <div className="store-footer__meta">
@@ -557,14 +502,103 @@ export default function HomePage({
             <button type="button" className="store-footer__logout" onClick={onLogout}>
               Выйти ({user?.username})
             </button>
-          ) : (
-            <div className="store-footer__auth-links">
-              <Link to="/register">Регистрация</Link>
-              <Link to="/login">Вход</Link>
-            </div>
-          )}
+          ) : null}
         </div>
       </footer>
+
+      {legalDoc ? (
+        <div className="store-legal-modal" role="dialog" aria-modal="true" aria-labelledby="store-legal-title">
+          <button
+            type="button"
+            className="store-legal-modal__backdrop"
+            aria-label="Закрыть"
+            onClick={() => setLegalDoc(null)}
+          />
+          <div className="store-legal-modal__panel">
+            <button
+              type="button"
+              className="store-legal-modal__close"
+              onClick={() => setLegalDoc(null)}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+            <div className="store-legal-modal__content">
+              {legalDoc === 'terms' ? (
+                <>
+                  <h2 id="store-legal-title">Пользовательское соглашение / Правила</h2>
+                  <p>
+                    Настоящее Пользовательское соглашение является договором между Администрацией и Пользователем,
+                    в котором определены условия пользования Сайтом, а также взаимные права и обязанности сторон.
+                  </p>
+                  <p>
+                    В соответствии с п. 1 ст. 398 Гражданского кодекса Республики Беларусь настоящее Пользовательское
+                    соглашение является договором присоединения.
+                  </p>
+                  <p>
+                    В соответствии с п. 2 ст. 407 Гражданского кодекса Республики Беларусь настоящее Пользовательское
+                    соглашение является публичной офертой. Пользовательское соглашение считается заключенным с момента
+                    получения Администрацией согласия Пользователя с условиями настоящего Пользовательского соглашения
+                    (акцепт оферты). Акцепт оферты производится путем осуществления Пользователем действий, указанных
+                    в п. 1.3 Пользовательского соглашения.
+                  </p>
+                  <p>
+                    Пользовательское соглашение определяет условия использования Сайта, а также взаимные права и
+                    обязанности сторон.
+                  </p>
+                  <h3>Основные положения</h3>
+                  <h3>1. Общие положения</h3>
+                  <p>
+                    1.1. Сайт FAP.CAP, размещенный по адресу https://www.FAP.CAP.ru (далее — Сайт), — коммерческий
+                    электронный информационный ресурс Общества с ограниченной ответственностью «FAP.CAP», представляющий
+                    собой совокупность общеполезных онлайн-сервисов (новостной электронный портал сетевого издания FAP.CAP;
+                    маркетплейс «Каталог FAP.CAP»; доска объявлений «Барахолка»; сервис по размещению заказов и поиску
+                    исполнителей «Услуги FAP.CAP»; позволяющий Пользователям ресурса создавать темы для обсуждения,
+                    обмениваться сообщениями и делиться своим опытом, задавать вопросы и отвечать на вопросы других
+                    Пользователей).
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 id="store-legal-title">Политика обработки персональных данных ООО «FAP.CAP»</h2>
+                  <p className="store-legal-modal__meta">
+                    УТВЕРЖДЕНО
+                    <br />
+                    Приказ директора
+                    <br />
+                    ООО «FAP.CAP»
+                    <br />
+                    18.08.2026 № 128
+                  </p>
+                  <h3>ПОЛИТИКА ОБРАБОТКИ ПЕРСОНАЛЬНЫХ ДАННЫХ ООО «FAP.CAP.ru»</h3>
+                  <p>(изменения вступили в силу с 19.08.2026)</p>
+                  <h3>ГЛАВА 1. ОБЩИЕ ПОЛОЖЕНИЯ</h3>
+                  <p>
+                    Настоящая Политика обработки персональных данных (далее — Политика) разработана ООО «FAP.CAP» во
+                    исполнение требований Закона Республики Беларусь от 07.05.2021 № 99-З «О защите персональных данных»
+                    (далее — Закон № 99-З).
+                  </p>
+                  <p>
+                    В силу Закона № 99-З Общество с ограниченной ответственностью «FAP.CAP» (УНП 190657494) является
+                    юридическим лицом, осуществляющим обработку персональных данных (далее — Оператор). Место нахождения:
+                    220123, г. Москва, ул. Старовиленская, 100/7, 2-й этаж.
+                  </p>
+                  <p>
+                    Политика разъясняет субъектам персональных данных цели, правовые основания, порядок обработки их
+                    персональных данных, а также имеющиеся в связи с этим у субъектов персональных данных права и механизм
+                    их реализации.
+                  </p>
+                  <p>Политика не применяется к обработке персональных данных:</p>
+                  <p>
+                    в процессе трудовой деятельности и при осуществлении административных процедур (в отношении работников
+                    и бывших работников)
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
