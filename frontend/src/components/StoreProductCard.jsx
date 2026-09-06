@@ -1,9 +1,12 @@
+import { useState } from 'react'
+import SizeSelectModal from './SizeSelectModal.jsx'
+
 const DISPLAY_PRICES = [800, 1000, 1500]
 
 /**
  * Стабильно выбирает одну из трёх цен (800 / 1000 / 1500 ₽) по id товара.
  */
-function randomDisplayPrice(product) {
+function resolveProductPrice(product) {
   const seed = Number(product?.id)
   const safeSeed = Number.isFinite(seed) && seed > 0
     ? seed
@@ -14,15 +17,7 @@ function randomDisplayPrice(product) {
 }
 
 /**
- * Цена для карточки витрины: только 800, 1000 или 1500 ₽.
- */
-function resolvePrice(product) {
-  return randomDisplayPrice(product)
-}
-
-/**
  * Форматирует цену карточки витрины.
- * HTML-сущность рубля из парсера FamShop превращается в символ ₽.
  */
 function formatPrice(price, currency) {
   const amount = Number(price)
@@ -38,12 +33,21 @@ function formatPrice(price, currency) {
 }
 
 /**
- * Карточка товара на витрине: фото, бренд, цена, рассрочка 4 платежа и кнопка «В корзину».
+ * Карточка товара на витрине: фото, бренд, цена и «В корзину» с выбором размера.
+ * Регистрация не нужна — размер выбирается в модалке, затем вызывается onAddToCart.
  */
 export default function StoreProductCard({ product, onAddToCart }) {
   const href = product.product_url || '#'
-  const price = resolvePrice(product)
+  const price = resolveProductPrice(product)
   const installments = price / 4
+  const [sizeOpen, setSizeOpen] = useState(false)
+
+  async function handleConfirmSize(size) {
+    const result = await onAddToCart?.(product, { size, unitPrice: price })
+    if (result?.ok !== false) {
+      setSizeOpen(false)
+    }
+  }
 
   return (
     <article className="store-product-card">
@@ -66,7 +70,7 @@ export default function StoreProductCard({ product, onAddToCart }) {
         4 платежа по {formatPrice(installments, product.currency || '₽')}
       </p>
       {onAddToCart ? (
-        <button type="button" className="store-product-card__cart" onClick={() => onAddToCart(product)}>
+        <button type="button" className="store-product-card__cart" onClick={() => setSizeOpen(true)}>
           В корзину
         </button>
       ) : (
@@ -74,6 +78,13 @@ export default function StoreProductCard({ product, onAddToCart }) {
           В корзину
         </a>
       )}
+
+      <SizeSelectModal
+        open={sizeOpen}
+        product={product}
+        onClose={() => setSizeOpen(false)}
+        onConfirm={handleConfirmSize}
+      />
     </article>
   )
 }

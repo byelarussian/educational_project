@@ -8,9 +8,12 @@ import CabinetPage from './pages/CabinetPage.jsx'
 import TasksPage from './pages/TasksPage.jsx'
 import CategoriesPage from './pages/CategoriesPage.jsx'
 import ProductsPage from './pages/ProductsPage.jsx'
+import CartDrawer from './components/CartDrawer.jsx'
+import CheckoutPage from './pages/CheckoutPage.jsx'
 import {
   addToCart,
   changeTaskStatus,
+  checkoutCart,
   createCategory,
   createTask,
   deleteCategory,
@@ -20,12 +23,22 @@ import {
   fetchMe,
   fetchProducts,
   fetchTasks,
+  guestCheckout,
   login,
   logout,
   register,
+  removeCartItem,
+  updateCartItem,
   updateCategory,
   updateTask,
 } from './api'
+import {
+  addGuestCartItem,
+  clearGuestCart,
+  readGuestCart,
+  removeGuestCartItem,
+  updateGuestCartItem,
+} from './guestCart'
 
 /**
  * Превращает тело ошибки API в одну строку для пользователя.
@@ -58,10 +71,12 @@ function App() {
 function AppContent() {
   const location = useLocation()
   const navigate = useNavigate()
-  const isStoreFront = ['/', '/login', '/register', '/cabinet'].includes(location.pathname)
+  const isStoreFront = ['/', '/login', '/register', '/cabinet', '/cart', '/checkout'].includes(location.pathname)
   const [token, setToken] = useState(localStorage.getItem('token') || '')
   const [user, setUser] = useState(null)
-  const [cart, setCart] = useState({ items: [], total: '0', count: 0 })
+  const [cart, setCart] = useState(() => readGuestCart())
+  const [cartBusy, setCartBusy] = useState(false)
+  const [cartOpen, setCartOpen] = useState(false)
   const [tasks, setTasks] = useState([])
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -122,7 +137,7 @@ function AppContent() {
           localStorage.removeItem('token')
           setToken('')
           setUser(null)
-          setCart({ items: [], total: '0', count: 0 })
+          setCart(readGuestCart())
         }
       }
     }
@@ -247,7 +262,40 @@ function AppContent() {
     }
   }, [token])
 
-  /** Вход: сохраняет токен в localStorage и кладёт user в state. */
+  /** После входа переносит позиции из гостевой корзины на сервер. */
+  async function mergeGuestCartIntoServer() {
+    const guestItems = readGuestCart().items
+    if (!guestItems.length) {
+      const response = await fetchCart()
+      setCart({
+        items: response.items || [],
+        total: response.total || '0',
+        count: response.count || 0,
+      })
+      return
+    }
+
+    for (const item of guestItems) {
+      try {
+        await addToCart({
+          product_id: item.product.id,
+          size: item.size,
+          quantity: item.quantity,
+        })
+      } catch {
+        // пропускаем позиции, которые не удалось перенести
+      }
+    }
+    clearGuestCart()
+    const response = await fetchCart()
+    setCart({
+      items: response.items || [],
+      total: response.total || '0',
+      count: response.count || 0,
+    })
+  }
+
+  /** Вход: сохраняет токен, переносит гостевую корзину и кладёт user в state. */
   async function handleLogin(credentials) {
     setLoading(true)
     setMessage('')
@@ -256,6 +304,7 @@ function AppContent() {
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
+      await mergeGuestCartIntoServer()
       setMessage('Вход выполнен')
     } catch (error) {
       setMessage(error.data?.error || 'Не удалось войти')
@@ -264,7 +313,7 @@ function AppContent() {
     }
   }
 
-  /** Регистрация: создаёт аккаунт, логинит и переводит в кабинет. */
+  /** Регистрация: создаёт аккаунт, логинит, переносит гостевую корзину и открывает кабинет. */
   async function handleRegister(formData) {
     setLoading(true)
     setMessage('')
@@ -276,6 +325,7 @@ function AppContent() {
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
+      await mergeGuestCartIntoServer()
       setMessage('Регистрация прошла успешно')
       navigate('/cabinet')
     } catch (error) {
@@ -285,7 +335,7 @@ function AppContent() {
     }
   }
 
-  /** Выход: просит сервер удалить токен и очищает локальное состояние. */
+  /** Выход: просит сервер удалить токен и возвращает гостевую корзину из localStorage. */
   async function handleLogout() {
     setLoading(true)
     try {
@@ -296,7 +346,7 @@ function AppContent() {
     localStorage.removeItem('token')
     setToken('')
     setUser(null)
-    setCart({ items: [], total: '0', count: 0 })
+    setCart(readGuestCart())
     setTasks([])
     setCategories([])
     setMessage('Logged out')
@@ -451,24 +501,103 @@ function AppContent() {
     }
   }
 
-  /** Добавляет товар в корзину; гостя отправляет на /login. Возвращает { ok } для карточки. */
-  async function handleAddToCart(product) {
+  /**
+   * Добавляет товар в корзину с выбранным размером.
+   * Без регистрации — в localStorage; с аккаунтом — через API.
+   */
+  async function handleAddToCart(product, { size, unitPrice } = {}) {
+    if (!size) {
+      return { ok: false, message: 'Выберите размер' }
+    }
+
     if (!isAuthenticated) {
-      setMessage('Войдите, чтобы добавить товар в корзину')
-      navigate('/login')
-      return { ok: false, message: 'Войдите, чтобы добавить товар в корзину' }
+      const nextCart = addGuestCartItem({
+        product,
+        size,
+        quantity: 1,
+        unitPrice: unitPrice ?? product.price ?? 0,
+      })
+      setCart(nextCart)
+      setCartOpen(true)
+      return { ok: true }
     }
 
     try {
-      const nextCart = await addToCart({ product_id: product.id, quantity: 1 })
+      const nextCart = await addToCart({ product_id: product.id, size, quantity: 1 })
       setCart({
         items: nextCart.items || [],
         total: nextCart.total || '0',
         count: nextCart.count || 0,
       })
+      setCartOpen(true)
       return { ok: true }
     } catch (error) {
       return { ok: false, message: error.data?.error || 'Не удалось добавить товар' }
+    }
+  }
+
+  async function handleCartQuantity(item, nextQuantity) {
+    if (nextQuantity < 1) return
+    setCartBusy(true)
+    try {
+      if (!isAuthenticated) {
+        setCart(updateGuestCartItem(item.id, nextQuantity))
+      } else {
+        const nextCart = await updateCartItem(item.id, nextQuantity)
+        handleCartChange(nextCart)
+      }
+    } catch (error) {
+      setMessage(error.data?.error || 'Не удалось обновить корзину')
+    } finally {
+      setCartBusy(false)
+    }
+  }
+
+  async function handleCartRemove(item) {
+    setCartBusy(true)
+    try {
+      if (!isAuthenticated) {
+        setCart(removeGuestCartItem(item.id))
+      } else {
+        const nextCart = await removeCartItem(item.id)
+        handleCartChange(nextCart)
+      }
+    } catch (error) {
+      setMessage(error.data?.error || 'Не удалось удалить товар')
+    } finally {
+      setCartBusy(false)
+    }
+  }
+
+  async function handleSubmitCheckout(form) {
+    setCartBusy(true)
+    setMessage('')
+    try {
+      let order
+      if (isAuthenticated) {
+        order = await checkoutCart(form)
+      } else {
+        order = await guestCheckout({
+          ...form,
+          items: (cart.items || []).map((item) => ({
+            product_id: item.product.id,
+            size: item.size,
+            quantity: item.quantity,
+          })),
+        })
+        clearGuestCart()
+      }
+      setCart({ items: [], total: '0', count: 0 })
+      setCartOpen(false)
+      return { ok: true, order }
+    } catch (error) {
+      const text =
+        error.data?.error ||
+        formatAuthError(error.data, 'Не удалось оформить заказ')
+      setMessage(text)
+      return { ok: false, message: text }
+    } finally {
+      setCartBusy(false)
     }
   }
 
@@ -527,6 +656,7 @@ function AppContent() {
                   message={message}
                   setMessage={setMessage}
                   cartCount={cart.count}
+                  onOpenCart={() => setCartOpen(true)}
                   onAddToCart={handleAddToCart}
                 />
               }
@@ -563,6 +693,23 @@ function AppContent() {
                 )
               }
             />
+            <Route path="/cart" element={<Navigate to="/checkout" replace />} />
+            <Route
+              path="/checkout"
+              element={
+                <CheckoutPage
+                  cart={cart}
+                  user={user}
+                  busy={cartBusy}
+                  message={message}
+                  onQuantity={handleCartQuantity}
+                  onRemove={handleCartRemove}
+                  onSubmitOrder={handleSubmitCheckout}
+                  onAddToCart={handleAddToCart}
+                  onOpenCart={() => setCartOpen(true)}
+                />
+              }
+            />
             <Route
               path="/cabinet"
               element={
@@ -584,6 +731,7 @@ function AppContent() {
                     onLogin={handleLogin}
                     onRegister={handleRegister}
                     isAuthenticated={isAuthenticated}
+                    onOpenCart={() => setCartOpen(true)}
                   />
                 ) : (
                   <Navigate to="/login" replace />
@@ -663,6 +811,15 @@ function AppContent() {
             />
           </Routes>
         </main>
+
+        <CartDrawer
+          open={cartOpen}
+          cart={cart}
+          busy={cartBusy}
+          onClose={() => setCartOpen(false)}
+          onQuantity={handleCartQuantity}
+          onRemove={handleCartRemove}
+        />
       </div>
   )
 }

@@ -186,11 +186,11 @@ export function fetchCart() {
   return request('/cart/')
 }
 
-/** POST /cart/ — кладёт товар в корзину (или увеличивает количество, если он уже там). */
-export function addToCart({ product_id, quantity = 1 }) {
+/** POST /cart/ — кладёт товар выбранного размера в корзину. */
+export function addToCart({ product_id, size, quantity = 1 }) {
   return request('/cart/', {
     method: 'POST',
-    body: JSON.stringify({ product_id, quantity }),
+    body: JSON.stringify({ product_id, size, quantity }),
   })
 }
 
@@ -209,10 +209,19 @@ export function removeCartItem(id) {
   })
 }
 
-/** POST /cart/checkout/ — оформляет заказ из корзины (нужен заполненный адрес в профиле). */
-export function checkoutCart() {
+/** POST /cart/checkout/ — оформляет заказ авторизованного пользователя (можно передать контакты). */
+export function checkoutCart(payload = {}) {
   return request('/cart/checkout/', {
     method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** POST /cart/guest-checkout/ — заказ без регистрации: контакты + позиции корзины. */
+export function guestCheckout(payload) {
+  return request('/cart/guest-checkout/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 

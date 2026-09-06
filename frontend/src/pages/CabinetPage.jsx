@@ -149,6 +149,7 @@ export default function CabinetPage({
   onLogin,
   onRegister,
   isAuthenticated,
+  onOpenCart,
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = TABS.some((item) => item.id === searchParams.get('tab')) ? searchParams.get('tab') : 'overview'
@@ -326,7 +327,14 @@ export default function CabinetPage({
             <button type="button" className={tab === 'orders' ? 'is-active' : ''} onClick={() => openTab('orders')}>
               Заказы
             </button>
-            <button type="button" className={tab === 'cart' ? 'is-active' : ''} onClick={() => openTab('cart')}>
+            <button
+              type="button"
+              className={tab === 'cart' ? 'is-active' : ''}
+              onClick={() => {
+                onOpenCart?.()
+                openTab('cart')
+              }}
+            >
               Корзина
             </button>
           </nav>
@@ -341,10 +349,10 @@ export default function CabinetPage({
               message={message}
               setMessage={setMessage}
             />
-            <Link to="/cabinet?tab=cart" className="store-icon-btn store-icon-btn--cart" aria-label="Корзина">
+            <button type="button" className="store-icon-btn store-icon-btn--cart" onClick={() => onOpenCart?.()} aria-label="Корзина">
               <CartIcon />
               {cartCount ? <span className="store-cart-badge">{cartCount}</span> : null}
-            </Link>
+            </button>
           </div>
         </div>
       </header>
@@ -364,7 +372,12 @@ export default function CabinetPage({
               key={item.id}
               type="button"
               className={tab === item.id ? 'is-active' : ''}
-              onClick={() => openTab(item.id)}
+              onClick={() => {
+                if (item.id === 'cart') {
+                  onOpenCart?.()
+                }
+                openTab(item.id)
+              }}
             >
               {item.label}
               {item.id === 'cart' && cartCount ? <span>{cartCount}</span> : null}
@@ -383,7 +396,14 @@ export default function CabinetPage({
                   <strong>{orders.length}</strong>
                   <span>заказов</span>
                 </button>
-                <button type="button" className="cabinet-stat" onClick={() => openTab('cart')}>
+                <button
+                  type="button"
+                  className="cabinet-stat"
+                  onClick={() => {
+                    onOpenCart?.()
+                    openTab('cart')
+                  }}
+                >
                   <strong>{cartCount}</strong>
                   <span>в корзине</span>
                 </button>
@@ -558,6 +578,7 @@ export default function CabinetPage({
                           <div>
                             <p>{item.title}</p>
                             <small>
+                              {item.size ? `Размер ${item.size} · ` : ''}
                               {item.quantity} × {formatPrice(item.price, item.currency)}
                             </small>
                           </div>
@@ -565,6 +586,7 @@ export default function CabinetPage({
                       ))}
                     </ul>
                     {order.address_line ? <p className="cabinet-muted">Доставка: {order.address_line}</p> : null}
+                    {order.payment_label ? <p className="cabinet-muted">Оплата: {order.payment_label}</p> : null}
                   </article>
                 ))
               ) : (
@@ -594,6 +616,7 @@ export default function CabinetPage({
                         )}
                         <div className="cabinet-cart__info">
                           <p>{item.product?.title}</p>
+                          {item.size ? <small>Размер: {item.size}</small> : null}
                           <small>{formatPrice(item.product?.price, item.product?.currency)}</small>
                         </div>
                         <div className="cabinet-qty">

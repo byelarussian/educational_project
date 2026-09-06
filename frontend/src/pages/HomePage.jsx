@@ -121,6 +121,7 @@ export default function HomePage({
   message,
   setMessage,
   cartCount = 0,
+  onOpenCart,
   onAddToCart,
 }) {
   const [products, setProducts] = useState([])
@@ -195,9 +196,9 @@ export default function HomePage({
     .slice(0, 8)
   const saleProducts = filteredProducts.filter((product) => (product.tag || '').toLowerCase().includes('скид')).slice(0, 8)
 
-  /** Кладёт товар в корзину через колбэк App и на 2 секунды показывает уведомление. */
-  async function handleAddProduct(product) {
-    const result = await onAddToCart?.(product)
+  /** Кладёт товар в корзину (с размером) через колбэк App и на 2 секунды показывает уведомление. */
+  async function handleAddProduct(product, options) {
+    const result = await onAddToCart?.(product, options)
     setCartNotice(result?.ok ? 'Товар добавлен в корзину' : result?.message || '')
     window.setTimeout(() => setCartNotice(''), 2200)
   }
@@ -260,9 +261,10 @@ export default function HomePage({
               message={message}
               setMessage={setMessage}
             />
-            <Link
+            <button
+              type="button"
               className="store-icon-btn store-icon-btn--cart"
-              to={isAuthenticated ? '/cabinet?tab=cart' : '/login'}
+              onClick={() => onOpenCart?.()}
               aria-label="Корзина"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -270,7 +272,7 @@ export default function HomePage({
                 <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               {cartCount ? <span className="store-cart-badge">{cartCount}</span> : null}
-            </Link>
+            </button>
             <button type="button" className="store-icon-btn store-burger" onClick={() => setMenuOpen((open) => !open)} aria-label="Меню">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
