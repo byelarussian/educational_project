@@ -8,7 +8,7 @@ from .models import Task, Category, Product, CartItem, Order
 
 
 class AuthenticationTest(APITestCase):
-    """Проверяет регистрацию и вход: токен выдаётся, несовпадение паролей и неверный логин отклоняются."""
+    """Проверяет регистрацию и вход: токен выдаётся сразу, неверный логин отклоняется."""
 
     def test_user_registration(self):
         """Регистрация с валидными данными возвращает 201, токен и созданного пользователя."""
@@ -18,42 +18,43 @@ class AuthenticationTest(APITestCase):
             'password': 'securepass123',
             'password_confirm': 'securepass123',
             'first_name': 'New',
-            'last_name': 'User'
+            'last_name': 'User',
         }
         response = self.client.post(reverse('auth-register'), data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('token', response.data)
         self.assertEqual(response.data['user']['username'], 'newuser')
-    
+        self.assertTrue(User.objects.get(username='newuser').is_active)
+
     def test_user_registration_password_mismatch(self):
         """Если password и password_confirm разные, API отвечает 400."""
         data = {
             'username': 'testuser',
             'email': 'test@example.com',
-            'password': 'pass123',
+            'password': 'pass12345',
             'password_confirm': 'different123',
         }
         response = self.client.post(reverse('auth-register'), data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-    
+
     def test_user_login(self):
         """Верный логин и пароль дают 200 и токен."""
-        user = User.objects.create_user(
+        User.objects.create_user(
             username='testuser',
             email='test@example.com',
-            password='password123'
+            password='password123',
         )
         data = {'username': 'testuser', 'password': 'password123'}
         response = self.client.post(reverse('auth-login'), data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('token', response.data)
         self.assertEqual(response.data['user']['username'], 'testuser')
-    
+
     def test_user_login_invalid_credentials(self):
         """Неверный пароль даёт 401, токен не выдаётся."""
         User.objects.create_user(
             username='testuser',
-            password='password123'
+            password='password123',
         )
         data = {'username': 'testuser', 'password': 'wrongpassword'}
         response = self.client.post(reverse('auth-login'), data, format='json')
@@ -68,7 +69,7 @@ class BackendAPITest(APITestCase):
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
-            password='password123'
+            password='password123',
         )
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -272,11 +273,12 @@ class CabinetAPITest(APITestCase):
         """Без адреса checkout — 400; после заполнения профиля создаётся заказ, корзина очищается."""
         add_response = self.client.post(
             reverse('cart-list'),
-            {'product_id': self.product.id, 'quantity': 2},
+            {'product_id': self.product.id, 'size': '58', 'quantity': 2},
             format='json',
         )
         self.assertEqual(add_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(add_response.data['count'], 2)
+        self.assertEqual(add_response.data['items'][0]['size'], '58')
 
         checkout_response = self.client.post(reverse('cart-checkout'), format='json')
         self.assertEqual(checkout_response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -290,6 +292,7 @@ class CabinetAPITest(APITestCase):
         self.assertEqual(checkout_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(checkout_response.data['status'], 'pending')
         self.assertEqual(len(checkout_response.data['items']), 1)
+        self.assertEqual(checkout_response.data['items'][0]['size'], '58')
         self.assertEqual(str(checkout_response.data['total']), '9000.00')
         self.assertEqual(CartItem.objects.filter(user=self.user).count(), 0)
 
@@ -297,3 +300,24 @@ class CabinetAPITest(APITestCase):
         self.assertEqual(orders_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(orders_response.data), 1)
         self.assertEqual(Order.objects.filter(user=self.user).count(), 1)
+
+    def test_guest_checkout_without_login(self):
+        """Гость оформляет заказ через /cart/guest-checkout/ без токена."""
+        self.client.credentials()
+        response = self.client.post(
+            reverse('cart-guest-checkout'),
+            {
+                'first_name': 'Гость',
+                'phone': '+79990001122',
+                'city': 'Москва',
+                'street': 'Бауманская, 9',
+                'items': [
+                    {'product_id': self.product.id, 'size': '57', 'quantity': 1},
+                ],
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['first_name'], 'Гость')
+        self.assertEqual(response.data['items'][0]['size'], '57')
+        self.assertIsNone(Order.objects.get(number=response.data['number']).user)

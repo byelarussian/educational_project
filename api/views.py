@@ -17,6 +17,7 @@ from .serializers import (
     ProductSerializer, ProductCategorySerializer,
     ProfileUpdateSerializer, CartItemSerializer, CartAddSerializer,
     CartQuantitySerializer, OrderSerializer, get_or_create_profile,
+    CheckoutContactSerializer, GuestCheckoutSerializer,
 )
 
 
@@ -34,25 +35,22 @@ class AuthViewSet(viewsets.ViewSet):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            token, created = Token.objects.get_or_create(user=user)
+            token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'user': UserSerializer(user).data,
-                'token': token.key
+                'token': token.key,
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
     def login(self, request):
-        """POST /auth/login/ — проверяет логин/пароль и возвращает существующий или новый токен.
-
-        При пустых полях — 400, при неверных данных — 401 с общим текстом (без утечки, какой именно логин неверен).
-        """
+        """POST /auth/login/ — проверяет логин/пароль и возвращает существующий или новый токен."""
         username = request.data.get('username')
         password = request.data.get('password')
 
         if not username or not password:
             return Response(
-                {'error': 'Please provide both username and password'},
+                {'error': 'Укажите логин и пароль'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -60,20 +58,24 @@ class AuthViewSet(viewsets.ViewSet):
             user = User.objects.get(username=username)
         except User.DoesNotExist:
             return Response(
-                {'error': 'Invalid username or password'},
+                {'error': 'Неверный логин или пароль'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
         if not user.check_password(password):
             return Response(
-                {'error': 'Invalid username or password'},
+                {'error': 'Неверный логин или пароль'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        token, created = Token.objects.get_or_create(user=user)
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+
+        token, _ = Token.objects.get_or_create(user=user)
         return Response({
             'user': UserSerializer(user).data,
-            'token': token.key
+            'token': token.key,
         })
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
@@ -283,11 +285,12 @@ class CartViewSet(viewsets.ViewSet):
         return Response(serialize_cart(request.user))
 
     def create(self, request):
-        """POST /cart/ — кладёт товар в корзину; если он уже есть, увеличивает quantity."""
+        """POST /cart/ — кладёт товар нужного размера в корзину; если позиция есть, увеличивает quantity."""
         serializer = CartAddSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product_id = serializer.validated_data['product_id']
         quantity = serializer.validated_data['quantity']
+        size = serializer.validated_data['size'].strip()
 
         try:
             product = Product.objects.get(pk=product_id)
@@ -297,6 +300,7 @@ class CartViewSet(viewsets.ViewSet):
         item, created = CartItem.objects.get_or_create(
             user=request.user,
             product=product,
+            size=size,
             defaults={'quantity': quantity},
         )
         if not created:
@@ -330,23 +334,46 @@ class CartViewSet(viewsets.ViewSet):
     def checkout(self, request):
         """POST /cart/checkout/ — создаёт заказ из корзины и очищает её.
 
-        Требует заполненный телефон и адрес в профиле. Все записи заказа пишутся в одной транзакции.
+        Контакты можно передать в теле запроса (страница /checkout);
+        иначе берутся из профиля. Минимум: телефон, город, улица.
         """
         items = list(CartItem.objects.filter(user=request.user).select_related('product'))
         if not items:
             return Response({'error': 'Корзина пуста'}, status=status.HTTP_400_BAD_REQUEST)
 
+        contact = CheckoutContactSerializer(data=request.data)
         profile = get_or_create_profile(request.user)
-        if not profile.has_delivery_address:
+        payment_method = 'on_site'
+
+        if contact.is_valid():
+            data = contact.validated_data
+            payment_method = data.get('payment_method') or 'on_site'
+            request.user.first_name = data['first_name']
+            request.user.last_name = data.get('last_name') or ''
+            if data.get('email'):
+                request.user.email = data['email']
+            request.user.save()
+            profile.phone = data['phone']
+            profile.city = data['city']
+            profile.street = data['street']
+            profile.apartment = data.get('apartment') or ''
+            profile.postal_code = data.get('postal_code') or ''
+            profile.save()
+        elif not profile.has_delivery_address:
             return Response(
-                {'error': 'Заполните телефон и адрес доставки в профиле'},
+                {'error': 'Заполните телефон и адрес доставки'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        else:
+            payment_method = request.data.get('payment_method') or 'on_site'
+            if payment_method not in ('cashless', 'on_site'):
+                payment_method = 'on_site'
 
         with transaction.atomic():
             order = Order.objects.create(
                 user=request.user,
                 number=generate_order_number(),
+                payment_method=payment_method,
                 first_name=request.user.first_name,
                 last_name=request.user.last_name,
                 email=request.user.email,
@@ -366,12 +393,70 @@ class CartViewSet(viewsets.ViewSet):
                     image_url=item.product.image_url or '',
                     price=price,
                     currency=item.product.currency or '₽',
+                    size=item.size or '',
                     quantity=item.quantity,
                 )
                 total += price * item.quantity
             order.total = total
             order.save(update_fields=['total'])
             CartItem.objects.filter(user=request.user).delete()
+
+        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='guest-checkout')
+    def guest_checkout(self, request):
+        """POST /cart/guest-checkout/ — заказ без регистрации (как на famshop checkout).
+
+        Принимает контакты и список позиций; корзина в localStorage очищается на клиенте.
+        """
+        serializer = GuestCheckoutSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        product_ids = [item['product_id'] for item in data['items']]
+        products = {
+            product.id: product
+            for product in Product.objects.filter(id__in=product_ids)
+        }
+        if len(products) != len(set(product_ids)):
+            return Response({'error': 'Некоторые товары не найдены'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                number=generate_order_number(),
+                payment_method=data.get('payment_method') or 'on_site',
+                first_name=data['first_name'],
+                last_name=data.get('last_name') or '',
+                email=data.get('email') or '',
+                phone=data['phone'],
+                city=data['city'],
+                street=data['street'],
+                apartment=data.get('apartment') or '',
+                postal_code=data.get('postal_code') or '',
+            )
+            total = Decimal('0')
+            for item in data['items']:
+                product = products[item['product_id']]
+                price = product.price or Decimal('0')
+                quantity = item['quantity']
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    title=product.title,
+                    image_url=product.image_url or '',
+                    price=price,
+                    currency=product.currency or '₽',
+                    size=item['size'].strip(),
+                    quantity=quantity,
+                )
+                total += price * quantity
+            order.total = total
+            order.save(update_fields=['total'])
+
+            if request.user.is_authenticated:
+                CartItem.objects.filter(user=request.user).delete()
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 

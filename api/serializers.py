@@ -86,13 +86,23 @@ class ProfileUpdateSerializer(serializers.Serializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Регистрация: проверяет совпадение паролей и создаёт пользователя через create_user."""
+    """Регистрация: проверяет email и пароли, сразу создаёт активного пользователя."""
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
+    email = serializers.EmailField(required=True, allow_blank=False)
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password_confirm', 'first_name', 'last_name']
+
+    def validate_email(self, value):
+        """Email обязателен и должен быть уникальным."""
+        email = (value or '').strip().lower()
+        if not email:
+            raise serializers.ValidationError('Укажите email')
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError('Пользователь с таким email уже зарегистрирован')
+        return email
 
     def validate(self, data):
         """Сравнивает password и password_confirm; при несовпадении возвращает ошибку валидации."""
@@ -101,8 +111,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        """Создаёт пользователя с хешированным паролем (не сохраняет пароль открытым текстом)."""
-        return User.objects.create_user(**validated_data)
+        """Создаёт активного пользователя с хешированным паролем."""
+        user = User.objects.create_user(**validated_data)
+        profile = get_or_create_profile(user)
+        if hasattr(profile, 'email_verified'):
+            profile.email_verified = True
+            profile.save(update_fields=['email_verified'])
+        return user
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -215,13 +230,13 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class CartItemSerializer(serializers.ModelSerializer):
-    """Позиция корзины: товар, количество и сумма строки строкой (чтобы JSON не потерял копейки)."""
+    """Позиция корзины: товар, размер, количество и сумма строки строкой."""
     product = ProductSerializer(read_only=True)
     line_total = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'quantity', 'line_total', 'created_at', 'updated_at']
+        fields = ['id', 'product', 'size', 'quantity', 'line_total', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
     def get_line_total(self, obj):
@@ -230,8 +245,9 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 
 class CartAddSerializer(serializers.Serializer):
-    """Тело POST /cart/: какой товар и сколько штук добавить."""
+    """Тело POST /cart/: товар, размер головного убора и количество."""
     product_id = serializers.IntegerField()
+    size = serializers.CharField(max_length=32, required=True, allow_blank=False)
     quantity = serializers.IntegerField(min_value=1, default=1, required=False)
 
 
@@ -240,13 +256,42 @@ class CartQuantitySerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
 
 
+class CheckoutContactSerializer(serializers.Serializer):
+    """Контакты, адрес доставки и способ оплаты для страницы оформления заказа."""
+    first_name = serializers.CharField(max_length=150, required=True, allow_blank=False)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
+    email = serializers.EmailField(required=False, allow_blank=True, default='')
+    phone = serializers.CharField(max_length=32, required=True, allow_blank=False)
+    city = serializers.CharField(max_length=120, required=True, allow_blank=False)
+    street = serializers.CharField(max_length=200, required=True, allow_blank=False)
+    apartment = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+    postal_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+    payment_method = serializers.ChoiceField(
+        choices=[('cashless', 'Безналичный расчёт'), ('on_site', 'Оплата на месте')],
+        required=False,
+        default='on_site',
+    )
+
+
+class GuestCheckoutItemSerializer(serializers.Serializer):
+    """Одна позиция гостевой корзины для checkout без аккаунта."""
+    product_id = serializers.IntegerField()
+    size = serializers.CharField(max_length=32, required=True, allow_blank=False)
+    quantity = serializers.IntegerField(min_value=1, default=1)
+
+
+class GuestCheckoutSerializer(CheckoutContactSerializer):
+    """Тело POST /cart/guest-checkout/: контакты + позиции из localStorage."""
+    items = GuestCheckoutItemSerializer(many=True, allow_empty=False)
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
-    """Строка заказа для кабинета: снимок товара и сумма строки."""
+    """Строка заказа для кабинета: снимок товара, размер и сумма строки."""
     line_total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'title', 'image_url', 'price', 'currency', 'quantity', 'line_total']
+        fields = ['id', 'product', 'title', 'image_url', 'price', 'currency', 'size', 'quantity', 'line_total']
 
     def get_line_total(self, obj):
         """Сумма строки заказа строкой."""
@@ -254,17 +299,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    """Заказ целиком: статус, контакты, состав и человекочитаемый адрес одной строкой."""
+    """Заказ целиком: статус, оплата, контакты, состав и человекочитаемый адрес одной строкой."""
     items = OrderItemSerializer(many=True, read_only=True)
     status_label = serializers.CharField(source='get_status_display', read_only=True)
+    payment_label = serializers.CharField(source='get_payment_method_display', read_only=True)
     address_line = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
-            'id', 'number', 'status', 'status_label', 'first_name', 'last_name',
-            'email', 'phone', 'city', 'street', 'apartment', 'postal_code',
-            'address_line', 'total', 'items', 'created_at', 'updated_at',
+            'id', 'number', 'status', 'status_label', 'payment_method', 'payment_label',
+            'first_name', 'last_name', 'email', 'phone', 'city', 'street', 'apartment',
+            'postal_code', 'address_line', 'total', 'items', 'created_at', 'updated_at',
         ]
 
     def get_address_line(self, obj):

@@ -84,7 +84,7 @@ class OrderItemInline(admin.TabularInline):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     """Заказы магазина: номер, статус, сумма; внутри — состав заказа."""
-    list_display = ['number', 'user', 'status', 'total', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['number', 'user', 'status', 'payment_method', 'total', 'created_at']
+    list_filter = ['status', 'payment_method', 'created_at']
     search_fields = ['number', 'user__username', 'phone']
     inlines = [OrderItemInline]

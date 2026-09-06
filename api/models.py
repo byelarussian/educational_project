@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.text import slugify
@@ -118,13 +120,14 @@ class Product(models.Model):
 
 
 class UserProfile(models.Model):
-    """Расширение аккаунта Django User: телефон и адрес доставки для оформления заказа."""
+    """Расширение аккаунта Django User: телефон, адрес и флаг подтверждения email."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone = models.CharField(max_length=32, blank=True)
     city = models.CharField(max_length=120, blank=True)
     street = models.CharField(max_length=200, blank=True)
     apartment = models.CharField(max_length=50, blank=True)
     postal_code = models.CharField(max_length=20, blank=True)
+    email_verified = models.BooleanField(default=False)
 
     def __str__(self):
         """Подпись профиля в админке: Profile <логин>."""
@@ -136,21 +139,45 @@ class UserProfile(models.Model):
         return bool(self.phone and self.city and self.street)
 
 
+class EmailVerificationToken(models.Model):
+    """Одноразовая ссылка подтверждения email после регистрации."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_tokens')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Email token for {self.user.username}'
+
+    @property
+    def is_used(self):
+        return bool(self.used_at)
+
+
 class CartItem(models.Model):
-    """Позиция корзины: один товар пользователя и его количество. Пара user+product уникальна."""
+    """Позиция корзины: товар пользователя, размер и количество.
+
+    Пара user+product+size уникальна — один и тот же товар разных размеров
+    лежит отдельными строками.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cart_items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cart_items')
+    size = models.CharField(max_length=32, blank=True, default='')
     quantity = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['user', 'product']
+        unique_together = ['user', 'product', 'size']
         ordering = ['-created_at']
 
     def __str__(self):
         """Кратко показывает, чей это товар в корзине."""
-        return f'{self.user.username} × {self.product.title}'
+        size_part = f' ({self.size})' if self.size else ''
+        return f'{self.user.username} × {self.product.title}{size_part}'
 
     @property
     def line_total(self):
@@ -172,10 +199,25 @@ class Order(models.Model):
         ('delivered', 'Доставлен'),
         ('cancelled', 'Отменён'),
     ]
+    PAYMENT_CHOICES = [
+        ('cashless', 'Безналичный расчёт'),
+        ('on_site', 'Оплата на месте'),
+    ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='orders',
+        null=True,
+        blank=True,
+    )
     number = models.CharField(max_length=24, unique=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_CHOICES,
+        default='on_site',
+    )
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(blank=True)
@@ -197,7 +239,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    """Строка заказа: копия названия, цены и картинки на момент покупки.
+    """Строка заказа: копия названия, цены, размера и картинки на момент покупки.
 
     product может стать NULL, если товар удалят из каталога — история заказа сохранится.
     """
@@ -207,6 +249,7 @@ class OrderItem(models.Model):
     image_url = models.URLField(blank=True)
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=10, blank=True, default='₽')
+    size = models.CharField(max_length=32, blank=True, default='')
     quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
