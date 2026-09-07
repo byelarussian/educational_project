@@ -17,7 +17,7 @@ from .serializers import (
     ProductSerializer, ProductCategorySerializer,
     ProfileUpdateSerializer, CartItemSerializer, CartAddSerializer,
     CartQuantitySerializer, OrderSerializer, get_or_create_profile,
-    CheckoutContactSerializer, GuestCheckoutSerializer,
+    CheckoutContactSerializer,
 )
 
 
@@ -413,60 +413,19 @@ class CartViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='guest-checkout')
     def guest_checkout(self, request):
-        """POST /cart/guest-checkout/ — заказ без регистрации (как на famshop checkout).
+        """POST /cart/guest-checkout/ — больше не создаёт заказ без аккаунта.
 
-        Принимает контакты и список позиций; корзина в localStorage очищается на клиенте.
+        Гостю возвращаем 403 с просьбой зарегистрироваться.
         """
-        serializer = GuestCheckoutSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-        product_ids = [item['product_id'] for item in data['items']]
-        products = {
-            product.id: product
-            for product in Product.objects.filter(id__in=product_ids)
-        }
-        if len(products) != len(set(product_ids)):
-            return Response({'error': 'Некоторые товары не найдены'}, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            order = Order.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                number=generate_order_number(),
-                payment_method=data.get('payment_method') or 'on_site',
-                first_name=data['first_name'],
-                last_name=data.get('last_name') or '',
-                email=data.get('email') or '',
-                phone=data['phone'],
-                city=data['city'],
-                street=data['street'],
-                apartment=data.get('apartment') or '',
-                postal_code=data.get('postal_code') or '',
-            )
-            total = Decimal('0')
-            for item in data['items']:
-                product = products[item['product_id']]
-                price = product.price or Decimal('0')
-                quantity = item['quantity']
-                OrderItem.objects.create(
-                    order=order,
-                    product=product,
-                    title=product.title,
-                    image_url=product.image_url or '',
-                    price=price,
-                    currency=product.currency or '₽',
-                    size=item['size'].strip(),
-                    quantity=quantity,
-                )
-                total += price * quantity
-            order.total = total
-            order.save(update_fields=['total'])
-
-            if request.user.is_authenticated:
-                CartItem.objects.filter(user=request.user).delete()
-
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                'error': (
+                    'Чтобы оформить заказ, нужно зарегистрироваться. '
+                    'Создайте аккаунт или войдите в существующий.'
+                ),
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):

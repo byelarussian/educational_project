@@ -17,6 +17,7 @@ const TABS = [
   { id: 'profile', label: 'Данные' },
   { id: 'address', label: 'Адрес' },
   { id: 'orders', label: 'Заказы' },
+  { id: 'tracking', label: 'Отслеживание' },
   { id: 'cart', label: 'Корзина' },
   { id: 'password', label: 'Пароль' },
 ]
@@ -107,6 +108,14 @@ function CartIcon() {
 }
 
 /**
+ * Подпись статуса заказа для бейджа во вкладке «Отслеживание».
+ */
+function orderStatusLabel(status) {
+  if (status === 'cancelled') return 'Отменён'
+  return ORDER_STEPS.find((step) => step.id === status)?.label || 'Оформлен'
+}
+
+/**
  * Шкала статусов заказа: оформлен → в сборке → в пути → доставлен.
  * Для cancelled показывает отдельную подпись вместо шкалы.
  */
@@ -133,7 +142,7 @@ function OrderTracker({ status }) {
 }
 
 /**
- * Личный кабинет: вкладки профиль, адрес, заказы, корзина и смена пароля.
+ * Личный кабинет: вкладки профиль, адрес, заказы, отслеживание, корзина и смена пароля.
  * Активная вкладка читается из ?tab= в URL.
  */
 export default function CabinetPage({
@@ -191,8 +200,6 @@ export default function CabinetPage({
   const displayName = user?.first_name || user?.username || 'друг'
   const cartItems = cart?.items || []
   const cartCount = cart?.count || 0
-  const profileFilled = [profile.first_name, profile.last_name, profile.phone, profile.email].filter(Boolean).length
-  const addressFilled = Boolean(address.city && address.street && profile.phone)
 
   const latestOrder = orders[0]
   const activeOrders = useMemo(
@@ -327,6 +334,9 @@ export default function CabinetPage({
             <button type="button" className={tab === 'orders' ? 'is-active' : ''} onClick={() => openTab('orders')}>
               Заказы
             </button>
+            <button type="button" className={tab === 'tracking' ? 'is-active' : ''} onClick={() => openTab('tracking')}>
+              Отслеживание
+            </button>
             <button
               type="button"
               className={tab === 'cart' ? 'is-active' : ''}
@@ -361,7 +371,7 @@ export default function CabinetPage({
         <div className="cabinet-hero__inner">
           <p className="cabinet-hero__kicker">Личный кабинет</p>
           <h1>Привет, {displayName}</h1>
-          <p className="cabinet-hero__lead">Заказы, данные, доставка и корзина — в одном месте.</p>
+          <p className="cabinet-hero__lead">Заказы, отслеживание, данные, доставка и корзина — в одном месте.</p>
         </div>
       </section>
 
@@ -382,6 +392,7 @@ export default function CabinetPage({
               {item.label}
               {item.id === 'cart' && cartCount ? <span>{cartCount}</span> : null}
               {item.id === 'orders' && activeOrders.length ? <span>{activeOrders.length}</span> : null}
+              {item.id === 'tracking' && activeOrders.length ? <span>{activeOrders.length}</span> : null}
             </button>
           ))}
         </aside>
@@ -391,32 +402,6 @@ export default function CabinetPage({
 
           {tab === 'overview' ? (
             <div className="cabinet-overview">
-              <div className="cabinet-stats">
-                <button type="button" className="cabinet-stat" onClick={() => openTab('orders')}>
-                  <strong>{orders.length}</strong>
-                  <span>заказов</span>
-                </button>
-                <button
-                  type="button"
-                  className="cabinet-stat"
-                  onClick={() => {
-                    onOpenCart?.()
-                    openTab('cart')
-                  }}
-                >
-                  <strong>{cartCount}</strong>
-                  <span>в корзине</span>
-                </button>
-                <button type="button" className="cabinet-stat" onClick={() => openTab('profile')}>
-                  <strong>{profileFilled}/4</strong>
-                  <span>данные</span>
-                </button>
-                <button type="button" className="cabinet-stat" onClick={() => openTab('address')}>
-                  <strong>{addressFilled ? 'Да' : 'Нет'}</strong>
-                  <span>адрес</span>
-                </button>
-              </div>
-
               <article className="cabinet-card">
                 <div className="cabinet-card__head">
                   <h2>Профиль</h2>
@@ -448,8 +433,8 @@ export default function CabinetPage({
                 <article className="cabinet-card">
                   <div className="cabinet-card__head">
                     <h2>Последний заказ {latestOrder.number}</h2>
-                    <button type="button" onClick={() => openTab('orders')}>
-                      Все заказы
+                    <button type="button" onClick={() => openTab('tracking')}>
+                      Отследить
                     </button>
                   </div>
                   <p className="cabinet-muted">
@@ -595,6 +580,73 @@ export default function CabinetPage({
                   <p>После оформления заказа здесь можно следить за сборкой и доставкой.</p>
                   <Link to="/" className="cabinet-btn">
                     Выбрать бейсболку
+                  </Link>
+                </article>
+              )}
+            </div>
+          ) : null}
+
+          {tab === 'tracking' ? (
+            <div className="cabinet-tracking">
+              <h2>Отслеживание заказов</h2>
+              <p className="cabinet-muted cabinet-tracking__lead">
+                Статус сборки и доставки по каждому заказу. Активных сейчас: {activeOrders.length}.
+              </p>
+              {orders.length ? (
+                orders.map((order) => (
+                  <article key={order.id} className="cabinet-order cabinet-tracking__card">
+                    <div className="cabinet-order__top">
+                      <div>
+                        <h3>{order.number}</h3>
+                        <p>{formatDate(order.created_at)}</p>
+                      </div>
+                      <span className={`cabinet-tracking__badge cabinet-tracking__badge--${order.status}`}>
+                        {orderStatusLabel(order.status)}
+                      </span>
+                    </div>
+                    <OrderTracker status={order.status} />
+                    <dl className="cabinet-dl cabinet-tracking__meta">
+                      <div>
+                        <dt>Сумма</dt>
+                        <dd>{formatPrice(order.total)}</dd>
+                      </div>
+                      <div>
+                        <dt>Оплата</dt>
+                        <dd>{order.payment_label || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Доставка</dt>
+                        <dd>{order.address_line || 'Адрес не указан'}</dd>
+                      </div>
+                      <div>
+                        <dt>Телефон</dt>
+                        <dd>{order.phone || profile.phone || '—'}</dd>
+                      </div>
+                    </dl>
+                    {order.items?.length ? (
+                      <ul className="cabinet-order__items">
+                        {order.items.map((item) => (
+                          <li key={item.id}>
+                            {item.image_url ? <img src={item.image_url} alt="" /> : <span className="cabinet-thumb" />}
+                            <div>
+                              <p>{item.title}</p>
+                              <small>
+                                {item.size ? `Размер ${item.size} · ` : ''}
+                                {item.quantity} шт.
+                              </small>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </article>
+                ))
+              ) : (
+                <article className="cabinet-empty">
+                  <h2>Пока нечего отслеживать</h2>
+                  <p>Оформите заказ — здесь появится шкала статуса доставки.</p>
+                  <Link to="/" className="cabinet-btn">
+                    В магазин
                   </Link>
                 </article>
               )}

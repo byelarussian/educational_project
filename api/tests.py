@@ -302,7 +302,7 @@ class CabinetAPITest(APITestCase):
         self.assertEqual(Order.objects.filter(user=self.user).count(), 1)
 
     def test_guest_checkout_without_login(self):
-        """Гость оформляет заказ через /cart/guest-checkout/ без токена."""
+        """Гость не может оформить заказ без регистрации — 403."""
         self.client.credentials()
         response = self.client.post(
             reverse('cart-guest-checkout'),
@@ -317,7 +317,6 @@ class CabinetAPITest(APITestCase):
             },
             format='json',
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['first_name'], 'Гость')
-        self.assertEqual(response.data['items'][0]['size'], '57')
-        self.assertIsNone(Order.objects.get(number=response.data['number']).user)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('зарегистрир', response.data['error'].lower())
+        self.assertEqual(Order.objects.filter(user__isnull=True).count(), 0)

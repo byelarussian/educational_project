@@ -1,27 +1,17 @@
-import { Link } from 'react-router-dom'
-import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
-import '../styles/HomePage.css'
+import { AuthStoreShell } from './LoginPage.jsx'
 
-/** Страница /register: шапка магазина и сразу открытая модалка регистрации. */
+/** Страница /register: витринный фон и модалка регистрации. */
 export default function RegisterPage({ onLogin, onRegister, loading, message, setMessage }) {
   return (
-    <div className="store-page store-auth-page">
-      <header className="store-header">
-        <div className="store-header__inner">
-          <Link to="/" className="store-logo" aria-label="FAM.CAP">
-            <span>FAM.CAP</span>
-          </Link>
-          <StoreAccountMenu
-            startOpen
-            initialTab="register"
-            onLogin={onLogin}
-            onRegister={onRegister}
-            loading={loading}
-            message={message}
-            setMessage={setMessage}
-          />
-        </div>
-      </header>
-    </div>
+    <AuthStoreShell
+      initialTab="register"
+      title="Создайте аккаунт"
+      lead="Зарегистрируйтесь, чтобы оформлять заказы и отслеживать доставку бейсболок."
+      onLogin={onLogin}
+      onRegister={onRegister}
+      loading={loading}
+      message={message}
+      setMessage={setMessage}
+    />
   )
 }

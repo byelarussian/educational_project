@@ -50,11 +50,12 @@ const PAYMENT_OPTIONS = [
 /**
  * Страница оформления заказа в духе famshop.ru/checkout:
  * состав корзины, форма доставки, блок «Также покупают».
- * Регистрация не обязательна.
+ * Оформление доступно только зарегистрированным пользователям.
  */
 export default function CheckoutPage({
   cart,
   user,
+  isAuthenticated = false,
   busy = false,
   message = '',
   onQuantity,
@@ -78,6 +79,7 @@ export default function CheckoutPage({
     postal_code: user?.postal_code || '',
   }))
   const [formError, setFormError] = useState('')
+  const [needsAuth, setNeedsAuth] = useState(false)
   const [doneOrder, setDoneOrder] = useState(null)
   const [alsoBuy, setAlsoBuy] = useState([])
 
@@ -121,6 +123,14 @@ export default function CheckoutPage({
 
   async function handleSubmit(event) {
     event.preventDefault()
+    if (!isAuthenticated) {
+      setNeedsAuth(true)
+      setFormError(
+        'Чтобы оформить заказ, нужно войти в аккаунт или зарегистрироваться. Товары из корзины сохранятся после входа.',
+      )
+      return
+    }
+    setNeedsAuth(false)
     if (!items.length) {
       setFormError('Корзина пуста')
       return
@@ -136,6 +146,7 @@ export default function CheckoutPage({
       setFormError('')
     } else {
       setFormError(result?.message || 'Не удалось оформить заказ')
+      if (result?.requireRegistration) setNeedsAuth(true)
     }
   }
 
@@ -234,7 +245,11 @@ export default function CheckoutPage({
 
             <form className="checkout-form" onSubmit={handleSubmit}>
               <h2>Оформление заказа</h2>
-              <p className="checkout-form__hint">Можно оформить без регистрации — укажите контакты и адрес доставки.</p>
+              <p className="checkout-form__hint">
+                {isAuthenticated
+                  ? 'Укажите контакты и адрес доставки для оформления заказа.'
+                  : 'Укажите контакты и адрес доставки. Для подтверждения заказа потребуется вход или регистрация.'}
+              </p>
 
               <div className="checkout-form__grid">
                 <label>
@@ -336,6 +351,17 @@ export default function CheckoutPage({
               <button type="submit" className="checkout-btn" disabled={busy}>
                 {busy ? 'Оформляем…' : 'Подтвердить заказ'}
               </button>
+
+              {!isAuthenticated && needsAuth ? (
+                <div className="checkout-form__auth-actions" role="status">
+                  <Link to="/login" className="checkout-btn">
+                    Войти в аккаунт
+                  </Link>
+                  <Link to="/register" className="checkout-btn checkout-btn--outline">
+                    Зарегистрироваться
+                  </Link>
+                </div>
+              ) : null}
             </form>
           </div>
         ) : null}

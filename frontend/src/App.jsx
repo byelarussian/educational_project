@@ -23,7 +23,6 @@ import {
   fetchMe,
   fetchProducts,
   fetchTasks,
-  guestCheckout,
   login,
   logout,
   register,
@@ -608,23 +607,17 @@ function AppContent() {
   }
 
   async function handleSubmitCheckout(form) {
+    if (!isAuthenticated) {
+      const text =
+        'Чтобы оформить заказ, нужно зарегистрироваться. Создайте аккаунт — товары из корзины сохранятся после входа.'
+      setMessage(text)
+      return { ok: false, message: text, requireRegistration: true }
+    }
+
     setCartBusy(true)
     setMessage('')
     try {
-      let order
-      if (isAuthenticated) {
-        order = await checkoutCart(form)
-      } else {
-        order = await guestCheckout({
-          ...form,
-          items: (cart.items || []).map((item) => ({
-            product_id: item.product.id,
-            size: item.size,
-            quantity: item.quantity,
-          })),
-        })
-        clearGuestCart()
-      }
+      const order = await checkoutCart(form)
       setCart({ items: [], total: '0', count: 0 })
       setCartOpen(false)
       return { ok: true, order }
@@ -738,6 +731,7 @@ function AppContent() {
                 <CheckoutPage
                   cart={cart}
                   user={user}
+                  isAuthenticated={isAuthenticated}
                   busy={cartBusy}
                   message={message}
                   onQuantity={handleCartQuantity}
