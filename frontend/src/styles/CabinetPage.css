@@ -35,13 +35,6 @@
 
 .store-icon-btn--cart {
   position: relative;
-  width: 42px;
-  height: 42px;
-}
-
-.store-icon-btn--cart svg {
-  width: 24px;
-  height: 24px;
 }
 
 .store-cart-badge {

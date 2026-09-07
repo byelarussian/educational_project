@@ -50,9 +50,24 @@ function formatAuthError(data, fallback) {
   if (data.error) return data.error
   if (data.detail) return data.detail
 
-  return Object.entries(data)
-    .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : value}`)
-    .join(' ')
+  const parts = Object.entries(data)
+    .map(([field, value]) => {
+      const text = Array.isArray(value) ? value.join(', ') : String(value)
+      if (field === 'non_field_errors') return text
+      return `${field}: ${text}`
+    })
+    .filter(Boolean)
+
+  return parts.length ? parts.join(' ') : fallback
+}
+
+function formatRequestError(error, fallback) {
+  if (!error) return fallback
+  if (error.data) return formatAuthError(error.data, fallback)
+  if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+    return 'Сервер недоступен. Запустите backend на http://localhost:8000 и попробуйте снова.'
+  }
+  return fallback
 }
 
 /** Корневой компонент: включает BrowserRouter, чтобы вложенный AppContent мог ходить по URL. */
@@ -264,35 +279,39 @@ function AppContent() {
 
   /** После входа переносит позиции из гостевой корзины на сервер. */
   async function mergeGuestCartIntoServer() {
-    const guestItems = readGuestCart().items
-    if (!guestItems.length) {
+    try {
+      const guestItems = readGuestCart().items
+      if (!guestItems.length) {
+        const response = await fetchCart()
+        setCart({
+          items: response.items || [],
+          total: response.total || '0',
+          count: response.count || 0,
+        })
+        return
+      }
+
+      for (const item of guestItems) {
+        try {
+          await addToCart({
+            product_id: item.product.id,
+            size: item.size,
+            quantity: item.quantity,
+          })
+        } catch {
+          // пропускаем позиции, которые не удалось перенести
+        }
+      }
+      clearGuestCart()
       const response = await fetchCart()
       setCart({
         items: response.items || [],
         total: response.total || '0',
         count: response.count || 0,
       })
-      return
+    } catch {
+      setCart(readGuestCart())
     }
-
-    for (const item of guestItems) {
-      try {
-        await addToCart({
-          product_id: item.product.id,
-          size: item.size,
-          quantity: item.quantity,
-        })
-      } catch {
-        // пропускаем позиции, которые не удалось перенести
-      }
-    }
-    clearGuestCart()
-    const response = await fetchCart()
-    setCart({
-      items: response.items || [],
-      total: response.total || '0',
-      count: response.count || 0,
-    })
   }
 
   /** Вход: сохраняет токен, переносит гостевую корзину и кладёт user в state. */
@@ -307,7 +326,7 @@ function AppContent() {
       await mergeGuestCartIntoServer()
       setMessage('Вход выполнен')
     } catch (error) {
-      setMessage(error.data?.error || 'Не удалось войти')
+      setMessage(formatRequestError(error, 'Не удалось войти'))
     } finally {
       setLoading(false)
     }
@@ -318,10 +337,29 @@ function AppContent() {
     setLoading(true)
     setMessage('')
     try {
-      const response = await register({
-        ...formData,
+      const payload = {
+        username: String(formData.username || '').trim(),
+        email: String(formData.email || '').trim(),
+        password: formData.password,
         password_confirm: formData.password_confirm || formData.password,
-      })
+        first_name: formData.first_name || '',
+        last_name: formData.last_name || '',
+      }
+      if (!payload.username || !payload.email || !payload.password) {
+        setMessage('Заполните логин, email и пароль')
+        return
+      }
+      if (payload.password !== payload.password_confirm) {
+        setMessage('Пароли не совпадают')
+        return
+      }
+
+      const response = await register(payload)
+      if (!response?.token) {
+        setMessage('Не удалось создать аккаунт: сервер не вернул токен')
+        return
+      }
+
       localStorage.setItem('token', response.token)
       setToken(response.token)
       setUser(response.user)
@@ -329,7 +367,7 @@ function AppContent() {
       setMessage('Регистрация прошла успешно')
       navigate('/cabinet')
     } catch (error) {
-      setMessage(formatAuthError(error.data, 'Не удалось создать аккаунт'))
+      setMessage(formatRequestError(error, 'Не удалось создать аккаунт'))
     } finally {
       setLoading(false)
     }

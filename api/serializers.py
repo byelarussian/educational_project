@@ -107,16 +107,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Сравнивает password и password_confirm; при несовпадении возвращает ошибку валидации."""
         if data['password'] != data.pop('password_confirm'):
-            raise serializers.ValidationError({'password': 'Passwords do not match'})
+            raise serializers.ValidationError({'password': 'Пароли не совпадают'})
         return data
 
     def create(self, validated_data):
         """Создаёт активного пользователя с хешированным паролем."""
         user = User.objects.create_user(**validated_data)
         profile = get_or_create_profile(user)
-        if hasattr(profile, 'email_verified'):
-            profile.email_verified = True
-            profile.save(update_fields=['email_verified'])
+        profile.email_verified = True
+        profile.save(update_fields=['email_verified'])
         return user
 
 

@@ -33,14 +33,22 @@ class AuthViewSet(viewsets.ViewSet):
         Успех: 201, { user, token }. Ошибки валидации: 400.
         """
         serializer = UserRegistrationSerializer(data=request.data)
-        if serializer.is_valid():
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
             user = serializer.save()
             token, _ = Token.objects.get_or_create(user=user)
-            return Response({
-                'user': UserSerializer(user).data,
-                'token': token.key,
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response(
+                {'error': f'Не удалось создать аккаунт: {exc}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({
+            'user': UserSerializer(user).data,
+            'token': token.key,
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'])
     def login(self, request):
@@ -242,7 +250,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['brand', 'currency', 'category', 'tag']
-    search_fields = ['title', 'brand', 'tag']
+    search_fields = ['title', 'brand', 'tag', 'slug', 'category__name']
     ordering_fields = ['price', 'created_at', 'updated_at']
     ordering = ['-updated_at']
 

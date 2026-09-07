@@ -100,12 +100,166 @@ const ARTICLES = [
   },
 ]
 
+/** Разделы и справочная информация сайта для поиска. */
+const SITE_PAGES = [
+  {
+    title: 'Новинки',
+    href: '#novinki',
+    description: 'Свежие поступления головных уборов',
+    keywords: 'новинки new дроп сезон',
+  },
+  {
+    title: 'Головные уборы / каталог',
+    href: '#catalog',
+    description: 'Категории и бренды бейсболок',
+    keywords: `каталог головные уборы бейсболки кепки шапки панамы бренды ${BRANDS.join(' ')}`,
+  },
+  {
+    title: 'Скидки',
+    href: '#sale',
+    description: 'Акции и сниженные цены',
+    keywords: 'скидки акции распродажа',
+  },
+  {
+    title: 'О нас',
+    href: '#about',
+    description: 'История FAM.CAP, гид в мире головных уборов',
+    keywords: 'о нас магазин семья 2016 гид fam.cap famshop оригинал качество',
+  },
+  {
+    title: 'Cap Lovers Club',
+    href: '#about',
+    description: 'Комьюнити ценителей бейсболок FAM',
+    keywords: 'cap lovers club комьюнити сообщество famshop',
+  },
+  {
+    title: 'Магазин в Москве',
+    href: '#store',
+    description: 'Бауманская д.9, ежедневно 10:00—22:00',
+    keywords: 'магазин москва бауманская адрес карта контакты метро флагманский кастомизация часы время работы телефон',
+  },
+  {
+    title: 'Контакты',
+    href: '#store',
+    description: '+7 (985) 233-25-06 · Бауманская 9',
+    keywords: 'контакты телефон +7 985 233 25 06 звонок связь',
+  },
+  {
+    title: 'Отзывы',
+    href: '#reviews',
+    description: 'Отзывы покупателей о FAM.CAP',
+    keywords: 'отзывы рейтинг покупатели яндекс карты оценки',
+  },
+  {
+    title: 'Полезные статьи',
+    href: '#articles',
+    description: 'Блог и гиды по головным уборам',
+    keywords: 'статьи блог полезное гид как выбрать',
+  },
+  {
+    title: 'Оформление заказа',
+    href: '/checkout',
+    description: 'Корзина и оформление без регистрации',
+    keywords: 'корзина заказ checkout оплата доставка гостевой заказ',
+  },
+  {
+    title: 'Вход / регистрация',
+    href: '/login',
+    description: 'Личный кабинет покупателя',
+    keywords: 'вход регистрация аккаунт кабинет профиль авторизация',
+  },
+  {
+    title: 'Пользовательское соглашение',
+    href: '#legal-terms',
+    description: 'Правила использования сайта',
+    keywords: 'пользовательское соглашение правила оферта условия',
+    legal: 'terms',
+  },
+  {
+    title: 'Политика персональных данных',
+    href: '#legal-privacy',
+    description: 'Обработка персональных данных ООО «FAP.CAP»',
+    keywords: 'политика персональных данных privacy конфиденциальность',
+    legal: 'privacy',
+  },
+  ...BRANDS.map((brand) => ({
+    title: `Бренд ${brand}`,
+    href: '#search-results',
+    description: `Товары ${brand} в каталоге FAM.CAP`,
+    keywords: `${brand} бренд бренды`,
+    searchQuery: brand,
+  })),
+  ...ARTICLES.map((article) => ({
+    title: article.title,
+    href: article.href,
+    description: `Статья · ${article.date}`,
+    keywords: `${article.title} статья блог`,
+    external: true,
+  })),
+]
+
 /**
- * Проверяет, подходит ли товар под строку поиска (название, бренд, тег, без учёта регистра).
+ * Нормализует строку поиска и разбивает на слова.
  */
-function matchesQuery(product, query) {
-  const haystack = `${product.title} ${product.brand} ${product.tag}`.toLowerCase()
-  return haystack.includes(query)
+function tokenizeQuery(query) {
+  return String(query || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .split(/[\s,.;:!?/+_-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 1)
+}
+
+/**
+ * Проверяет, подходит ли текст под все слова запроса.
+ */
+function textMatchesTokens(text, tokens) {
+  if (!tokens.length) return true
+  const haystack = String(text || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+  return tokens.every((token) => haystack.includes(token))
+}
+
+/**
+ * Проверяет товар: название, бренд, тег, категория, slug.
+ */
+function matchesProductQuery(product, tokens) {
+  const haystack = [
+    product.title,
+    product.brand,
+    product.tag,
+    product.slug,
+    product.category?.name,
+    product.product_url,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return textMatchesTokens(haystack, tokens)
+}
+
+/**
+ * Загружает все страницы результатов /products/?search=...
+ */
+async function fetchAllProductSearch(query) {
+  const collected = []
+  let page = 1
+  while (page <= 20) {
+    const response = await fetchProducts({ page, search: query })
+    collected.push(...(response.results || []))
+    if (!response.next) break
+    page += 1
+  }
+  return collected
+}
+
+function mergeProductsById(...lists) {
+  const map = new Map()
+  lists.flat().forEach((product) => {
+    if (product?.id != null) map.set(product.id, product)
+  })
+  return Array.from(map.values())
 }
 
 /**
@@ -128,9 +282,14 @@ export default function HomePage({
   const [heroIndex, setHeroIndex] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchBusy, setSearchBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartNotice, setCartNotice] = useState('')
   const [legalDoc, setLegalDoc] = useState(null)
+
+  const searchTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery])
+  const isSearching = searchTokens.length > 0
 
   useEffect(() => {
     if (!legalDoc) return undefined
@@ -146,27 +305,33 @@ export default function HomePage({
   useEffect(() => {
     let cancelled = false
 
-    /** Грузит товары группировкой by_category; если эндпоинт недоступен — берёт обычный список /products/. */
+    /** Грузит полный каталог: сначала by_category, затем догружает страницы /products/. */
     async function loadStoreProducts() {
+      let fromCategories = []
       try {
         const grouped = await fetchProductsByCategory()
-        const list = Array.isArray(grouped)
-          ? grouped.flatMap((group) => group.products || [])
-          : []
-        if (!cancelled) {
-          setProducts(list)
+        if (Array.isArray(grouped)) {
+          fromCategories = grouped.flatMap((group) => group.products || [])
         }
       } catch {
-        try {
-          const response = await fetchProducts({ page: 1 })
-          if (!cancelled) {
-            setProducts(response.results || [])
-          }
-        } catch {
-          if (!cancelled) {
-            setProducts([])
-          }
+        // keep empty catalog from categories
+      }
+
+      let fromPages = []
+      try {
+        let page = 1
+        while (page <= 20) {
+          const response = await fetchProducts({ page })
+          fromPages.push(...(response.results || []))
+          if (!response.next) break
+          page += 1
         }
+      } catch {
+        // keep whatever pages we already collected
+      }
+
+      if (!cancelled) {
+        setProducts(mergeProductsById(fromCategories, fromPages))
       }
     }
 
@@ -183,24 +348,67 @@ export default function HomePage({
     return () => window.clearInterval(timer)
   }, [])
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return products
-    return products.filter((product) => matchesQuery(product, query))
-  }, [products, searchQuery])
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) return undefined
 
-  const novelties = filteredProducts.slice(0, 8)
-  const bestsellers = filteredProducts.slice(8, 16)
-  const newEraProducts = filteredProducts
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setSearchBusy(true)
+      try {
+        const localHits = products.filter((product) => matchesProductQuery(product, tokenizeQuery(query)))
+        let apiHits = []
+        try {
+          apiHits = await fetchAllProductSearch(query)
+        } catch {
+          apiHits = []
+        }
+        if (!cancelled) {
+          setSearchResults(mergeProductsById(apiHits, localHits))
+        }
+      } finally {
+        if (!cancelled) setSearchBusy(false)
+      }
+    }, 280)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery, products])
+
+  const pageHits = useMemo(() => {
+    if (!isSearching) return []
+    return SITE_PAGES.filter((page) =>
+      textMatchesTokens(`${page.title} ${page.description} ${page.keywords}`, searchTokens),
+    )
+  }, [isSearching, searchTokens])
+
+  const visibleSearchResults = isSearching ? searchResults : []
+  const displayProducts = isSearching ? visibleSearchResults : products
+  const novelties = displayProducts.slice(0, 8)
+  const bestsellers = displayProducts.slice(8, 16)
+  const newEraProducts = displayProducts
     .filter((product) => (product.brand || '').toLowerCase().includes('new era') || (product.title || '').toLowerCase().includes('new era'))
     .slice(0, 8)
-  const saleProducts = filteredProducts.filter((product) => (product.tag || '').toLowerCase().includes('скид')).slice(0, 8)
+  const saleProducts = displayProducts.filter((product) => (product.tag || '').toLowerCase().includes('скид')).slice(0, 8)
 
   /** Кладёт товар в корзину (с размером) через колбэк App и на 2 секунды показывает уведомление. */
   async function handleAddProduct(product, options) {
     const result = await onAddToCart?.(product, options)
     setCartNotice(result?.ok ? 'Товар добавлен в корзину' : result?.message || '')
     window.setTimeout(() => setCartNotice(''), 2200)
+  }
+
+  function handleSearchSubmit(event) {
+    event.preventDefault()
+    const target = document.getElementById('search-results')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function clearSearch() {
+    setSearchQuery('')
+    setSearchOpen(false)
   }
 
   const slide = HERO_SLIDES[heroIndex]
@@ -226,9 +434,23 @@ export default function HomePage({
               </button>
               <div className="store-nav__menu">
                 {BRANDS.map((brand) => (
-                  <a key={brand} href="#catalog">
+                  <button
+                    key={brand}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(brand)
+                      setSearchOpen(true)
+                      setMenuOpen(false)
+                      window.setTimeout(() => {
+                        document.getElementById('search-results')?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                      }, 100)
+                    }}
+                  >
                     {brand}
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -239,10 +461,6 @@ export default function HomePage({
               О нас
             </a>
           </nav>
-
-          <a className="store-phone" href="tel:+79852332506">
-            +7 (985) 233-25-06
-          </a>
 
           <div className="store-header__actions">
             <button type="button" className="store-icon-btn" onClick={() => setSearchOpen((open) => !open)} aria-label="Поиск">
@@ -282,21 +500,20 @@ export default function HomePage({
         </div>
 
         {searchOpen && (
-          <form
-            className="store-search"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSearchOpen(false)
-            }}
-          >
+          <form className="store-search" onSubmit={handleSearchSubmit}>
             <input
               type="search"
-              placeholder="Поиск"
+              placeholder="Поиск по товарам, брендам и разделам сайта"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               autoFocus
             />
-            <button type="submit">Поиск</button>
+            <button type="submit">Найти</button>
+            {isSearching ? (
+              <button type="button" className="store-search__clear" onClick={clearSearch}>
+                Сбросить
+              </button>
+            ) : null}
           </form>
         )}
       </header>
@@ -344,6 +561,100 @@ export default function HomePage({
 
       {cartNotice ? <p className="store-cart-notice">{cartNotice}</p> : null}
 
+      {isSearching ? (
+        <section className="store-search-results" id="search-results">
+          <div className="store-search-results__header">
+            <h2>
+              Результаты по запросу «{searchQuery.trim()}»
+              <span>
+                {searchBusy
+                  ? 'Ищем…'
+                  : `${visibleSearchResults.length} товар(ов)${pageHits.length ? `, ${pageHits.length} раздел(ов)` : ''}`}
+              </span>
+            </h2>
+            <button type="button" className="store-search-results__reset" onClick={clearSearch}>
+              Сбросить поиск
+            </button>
+          </div>
+
+          {pageHits.length ? (
+            <div className="store-search-results__pages">
+              <h3>Разделы и информация</h3>
+              <ul>
+                {pageHits.map((page) => (
+                  <li key={`${page.href}-${page.title}`}>
+                    {page.external ? (
+                      <a href={page.href} target="_blank" rel="noreferrer">
+                        <strong>{page.title}</strong>
+                        <span>{page.description}</span>
+                      </a>
+                    ) : page.legal ? (
+                      <button
+                        type="button"
+                        className="store-search-results__page-btn"
+                        onClick={() => {
+                          setLegalDoc(page.legal)
+                          setSearchOpen(false)
+                        }}
+                      >
+                        <strong>{page.title}</strong>
+                        <span>{page.description}</span>
+                      </button>
+                    ) : page.searchQuery ? (
+                      <button
+                        type="button"
+                        className="store-search-results__page-btn"
+                        onClick={() => {
+                          setSearchQuery(page.searchQuery)
+                          setSearchOpen(false)
+                          window.requestAnimationFrame(() => {
+                            document.getElementById('search-results')?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            })
+                          })
+                        }}
+                      >
+                        <strong>{page.title}</strong>
+                        <span>{page.description}</span>
+                      </button>
+                    ) : page.href.startsWith('/') ? (
+                      <Link to={page.href} onClick={() => setSearchOpen(false)}>
+                        <strong>{page.title}</strong>
+                        <span>{page.description}</span>
+                      </Link>
+                    ) : (
+                      <a href={page.href} onClick={() => setSearchOpen(false)}>
+                        <strong>{page.title}</strong>
+                        <span>{page.description}</span>
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {searchBusy && !visibleSearchResults.length ? (
+            <p className="store-rail__empty">Ищем по каталогу…</p>
+          ) : null}
+
+          {!searchBusy && !visibleSearchResults.length && !pageHits.length ? (
+            <p className="store-rail__empty">Ничего не найдено. Попробуйте другое название, бренд или раздел.</p>
+          ) : null}
+
+          {visibleSearchResults.length ? (
+            <div className="store-rail__grid">
+              {visibleSearchResults.map((product) => (
+                <StoreProductCard key={product.id} product={product} onAddToCart={handleAddProduct} />
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {!isSearching ? (
+        <>
       <ProductRail
         id="novinki"
         title="Новинки"
@@ -387,9 +698,11 @@ export default function HomePage({
         id="sale"
         title="Скидки"
         description="Честные цены на оригинальные модели"
-        products={saleProducts.length ? saleProducts : filteredProducts.slice(-8)}
+        products={saleProducts.length ? saleProducts : displayProducts.slice(-8)}
         onAddToCart={handleAddProduct}
       />
+        </>
+      ) : null}
 
       <section className="store-dark">
         <div className="store-why">
@@ -418,7 +731,7 @@ export default function HomePage({
           </ul>
         </div>
 
-        <section className="store-reviews">
+        <section className="store-reviews" id="reviews">
           <div className="store-reviews__header">
             <h2>
               Отзывы
@@ -433,7 +746,7 @@ export default function HomePage({
           </div>
         </section>
 
-        <section className="store-articles">
+        <section className="store-articles" id="articles">
           <div className="store-articles__header">
             <h2>Полезные статьи</h2>
             <a href="https://famshop.ru/blog/" target="_blank" rel="noreferrer">
