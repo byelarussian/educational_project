@@ -218,6 +218,7 @@ class ProductCategorySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     """Карточка товара для витрины, корзины и каталога: цена, бренд, вложенная категория."""
     category = ProductCategorySerializer(read_only=True)
+    price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -226,6 +227,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'currency', 'brand', 'tag', 'category', 'created_at', 'updated_at'
         ]
         read_only_fields = ['slug', 'created_at', 'updated_at']
+
+    def get_price(self, obj):
+        """Витринная цена 800/1000/1500 ₽ — как на фронте."""
+        from .pricing import resolve_product_price
+
+        return str(resolve_product_price(obj))
 
 
 class CartItemSerializer(serializers.ModelSerializer):

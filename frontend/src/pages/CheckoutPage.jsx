@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StoreProductCard from '../components/StoreProductCard.jsx'
+import StorePillNav from '../components/StorePillNav.jsx'
 import { fetchProducts } from '../api'
 import '../styles/HomePage.css'
 
@@ -58,6 +59,11 @@ export default function CheckoutPage({
   isAuthenticated = false,
   busy = false,
   message = '',
+  setMessage,
+  onLogin,
+  onRegister,
+  onLogout,
+  loading = false,
   onQuantity,
   onRemove,
   onSubmitOrder,
@@ -162,13 +168,23 @@ export default function CheckoutPage({
             <span>/</span>
             <span>Корзина</span>
           </nav>
-          <button type="button" className="store-icon-btn store-icon-btn--cart" onClick={() => onOpenCart?.()} aria-label="Корзина">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M6 8h12l-1 11H7L6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-              <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            {cart?.count ? <span className="store-cart-badge">{cart.count}</span> : null}
-          </button>
+          <div className="store-header__actions">
+            <StorePillNav
+              cartCount={cart?.count || 0}
+              onSearch={() => {
+                window.location.href = '/#catalog'
+              }}
+              onOpenCart={() => onOpenCart?.()}
+              isAuthenticated={isAuthenticated}
+              user={user}
+              onLogout={onLogout}
+              onLogin={onLogin}
+              onRegister={onRegister}
+              loading={loading}
+              message={message}
+              setMessage={setMessage}
+            />
+          </div>
         </div>
       </header>
 

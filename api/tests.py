@@ -293,7 +293,10 @@ class CabinetAPITest(APITestCase):
         self.assertEqual(checkout_response.data['status'], 'pending')
         self.assertEqual(len(checkout_response.data['items']), 1)
         self.assertEqual(checkout_response.data['items'][0]['size'], '58')
-        self.assertEqual(str(checkout_response.data['total']), '9000.00')
+        from api.pricing import resolve_product_price
+
+        expected_total = resolve_product_price(self.product) * 2
+        self.assertEqual(str(checkout_response.data['total']), f'{expected_total:.2f}')
         self.assertEqual(CartItem.objects.filter(user=self.user).count(), 0)
 
         orders_response = self.client.get(reverse('order-list'))

@@ -734,6 +734,11 @@ function AppContent() {
                   isAuthenticated={isAuthenticated}
                   busy={cartBusy}
                   message={message}
+                  setMessage={setMessage}
+                  onLogin={handleLogin}
+                  onRegister={handleRegister}
+                  onLogout={handleLogout}
+                  loading={loading}
                   onQuantity={handleCartQuantity}
                   onRemove={handleCartRemove}
                   onSubmitOrder={handleSubmitCheckout}

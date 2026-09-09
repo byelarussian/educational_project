@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import StorePillNav from '../components/StorePillNav.jsx'
 import {
   changePassword,
   checkoutCart,
@@ -21,6 +21,37 @@ const TABS = [
   { id: 'cart', label: 'Корзина' },
   { id: 'password', label: 'Пароль' },
 ]
+
+/** Атмосфера кабинета: мужские бейсболки с прямым козырьком (визуальный ряд как на Pinterest / FAM.CAP). */
+const CABINET_MOOD = {
+  hero: 'https://famshop.ru/wp-content/cache/thumb/6c/486483ccda5c46c_3840x2060.jpg',
+  strip: [
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/6e/aac224fdbce586e_370x180.jpg',
+      label: 'New Era',
+    },
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/b7/cd63c77a08405b7_370x180.jpg',
+      label: 'Kangol',
+    },
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/87/8af6e536489a887_370x180.jpg',
+      label: 'FAM.CAP',
+    },
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/eb/114b8ca6280d5eb_370x180.jpg',
+      label: "'47",
+    },
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/c2/8a758b4e935b9c2_370x180.jpg',
+      label: 'Сетка',
+    },
+    {
+      src: 'https://famshop.ru/wp-content/cache/thumb/d8/19672f95c5c1dd8_670x730.png',
+      label: 'Fitted',
+    },
+  ],
+}
 
 const ORDER_STEPS = [
   { id: 'pending', label: 'Оформлен' },
@@ -97,16 +128,6 @@ function formatDate(value) {
   })
 }
 
-/** Иконка корзины в шапке кабинета. */
-function CartIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 8h12l-1 11H7L6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 /**
  * Подпись статуса заказа для бейджа во вкладке «Отслеживание».
  */
@@ -161,6 +182,7 @@ export default function CabinetPage({
   onOpenCart,
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const tab = TABS.some((item) => item.id === searchParams.get('tab')) ? searchParams.get('tab') : 'overview'
   const [orders, setOrders] = useState([])
   const [status, setStatus] = useState('')
@@ -349,7 +371,11 @@ export default function CabinetPage({
             </button>
           </nav>
           <div className="store-header__actions">
-            <StoreAccountMenu
+            <StorePillNav
+              hideHome={false}
+              cartCount={cartCount}
+              onSearch={() => navigate('/')}
+              onOpenCart={() => onOpenCart?.()}
               isAuthenticated={isAuthenticated}
               user={user}
               onLogout={onLogout}
@@ -359,19 +385,45 @@ export default function CabinetPage({
               message={message}
               setMessage={setMessage}
             />
-            <button type="button" className="store-icon-btn store-icon-btn--cart" onClick={() => onOpenCart?.()} aria-label="Корзина">
-              <CartIcon />
-              {cartCount ? <span className="store-cart-badge">{cartCount}</span> : null}
-            </button>
           </div>
         </div>
       </header>
 
-      <section className="cabinet-hero">
+      <section
+        className="cabinet-hero"
+        style={{ backgroundImage: `url(${CABINET_MOOD.hero})` }}
+      >
+        <div className="cabinet-hero__veil" aria-hidden="true" />
         <div className="cabinet-hero__inner">
           <p className="cabinet-hero__kicker">Личный кабинет</p>
           <h1>Привет, {displayName}</h1>
           <p className="cabinet-hero__lead">Заказы, отслеживание, данные, доставка и корзина — в одном месте.</p>
+        </div>
+      </section>
+
+      <section className="cabinet-mood" aria-label="Бейсболки с прямым козырьком">
+        <div className="cabinet-mood__inner">
+          <div className="cabinet-mood__copy">
+            <p className="cabinet-mood__kicker">Flat brim</p>
+            <h2>Мужские бейсболки с прямым козырьком</h2>
+            <p>Атмосфера кабинета — в духе подборок fitted и snapback с прямым козырьком.</p>
+            <a
+              className="cabinet-mood__link"
+              href="https://ru.pinterest.com/search/pins/?q=%D0%B1%D0%B5%D0%B9%D1%81%D0%B1%D0%BE%D0%BB%D0%BA%D0%B8%20%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B8%D0%B5%20%D1%81%20%D0%BF%D1%80%D1%8F%D0%BC%D1%8B%D0%BC%20%D0%BA%D0%BE%D0%B7%D1%8B%D1%80%D1%8C%D0%BA%D0%BE%D0%BC&rs=typed"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Смотреть вдохновение
+            </a>
+          </div>
+          <div className="cabinet-mood__strip">
+            {CABINET_MOOD.strip.map((item) => (
+              <figure key={item.label} className="cabinet-mood__shot">
+                <img src={item.src} alt={item.label} loading="lazy" />
+                <figcaption>{item.label}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 

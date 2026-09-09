@@ -2,20 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import StoreAuthModal from './StoreAuthModal.jsx'
 
-/** SVG-иконка силуэта пользователя на кнопке входа в шапке. */
-function UserIcon() {
+function PillUserIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5.2 19.2c1.5-3.1 3.9-4.7 6.8-4.7s5.3 1.6 6.8 4.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M5 19.2c1.4-3 3.7-4.5 7-4.5s5.6 1.5 7 4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
 
 /**
  * Меню аккаунта в шапке магазина.
- * Гость: иконка открывает модалку входа/регистрации.
- * Авторизованный: аватар с выпадающим списком «Кабинет» и «Выйти».
+ * variant="pill" — пункт белого овала с подписью «Кабинет».
  */
 export default function StoreAccountMenu({
   isAuthenticated,
@@ -28,15 +31,16 @@ export default function StoreAccountMenu({
   setMessage,
   initialTab = 'login',
   startOpen = false,
+  variant = 'default',
 }) {
   const [open, setOpen] = useState(Boolean(startOpen) && !isAuthenticated)
   const [tab, setTab] = useState(initialTab)
   const rootRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const isPill = variant === 'pill'
 
   useEffect(() => {
-    /** Закрывает выпадающее меню, если клик был снаружи блока аккаунта. */
     function handlePointerDown(event) {
       if (rootRef.current && !rootRef.current.contains(event.target)) {
         setOpen(false)
@@ -47,17 +51,20 @@ export default function StoreAccountMenu({
     return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
 
+  const triggerClass = isPill ? 'store-pill-nav__item' : 'store-icon-btn'
+
   if (isAuthenticated) {
     return (
-      <div className={`store-account${open ? ' is-open' : ''}`} ref={rootRef}>
+      <div className={`store-account${open ? ' is-open' : ''}${isPill ? ' store-account--pill' : ''}`} ref={rootRef}>
         <button
           type="button"
-          className="store-icon-btn"
+          className={triggerClass}
           aria-label={user?.username || 'Аккаунт'}
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
         >
-          <span className="store-account__avatar">{user?.username?.[0]?.toUpperCase() || 'A'}</span>
+          <PillUserIcon />
+          {isPill ? <span>Кабинет</span> : null}
         </button>
         {open ? (
           <div className="store-account__dropdown" role="menu">
@@ -74,10 +81,10 @@ export default function StoreAccountMenu({
   }
 
   return (
-    <>
+    <div className={`store-account${isPill ? ' store-account--pill' : ''}`} ref={rootRef}>
       <button
         type="button"
-        className="store-icon-btn"
+        className={triggerClass}
         aria-label="Вход и регистрация"
         onClick={() => {
           setTab(initialTab)
@@ -85,7 +92,8 @@ export default function StoreAccountMenu({
           setOpen(true)
         }}
       >
-        <UserIcon />
+        <PillUserIcon />
+        {isPill ? <span>Кабинет</span> : null}
       </button>
       <StoreAuthModal
         open={open}
@@ -103,6 +111,6 @@ export default function StoreAccountMenu({
         message={message}
         setMessage={setMessage}
       />
-    </>
+    </div>
   )
 }

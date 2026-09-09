@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StoreProductCard from '../components/StoreProductCard.jsx'
-import StoreAccountMenu from '../components/StoreAccountMenu.jsx'
+import StorePillNav from '../components/StorePillNav.jsx'
 import { fetchProducts, fetchProductsByCategory } from '../api'
 import '../styles/HomePage.css'
 
@@ -463,13 +463,10 @@ export default function HomePage({
           </nav>
 
           <div className="store-header__actions">
-            <button type="button" className="store-icon-btn" onClick={() => setSearchOpen((open) => !open)} aria-label="Поиск">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="11" cy="11" r="6.25" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M16 16.5 20.5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-            <StoreAccountMenu
+            <StorePillNav
+              cartCount={cartCount}
+              onSearch={() => setSearchOpen((open) => !open)}
+              onOpenCart={() => onOpenCart?.()}
               isAuthenticated={isAuthenticated}
               user={user}
               onLogout={onLogout}
@@ -479,18 +476,6 @@ export default function HomePage({
               message={message}
               setMessage={setMessage}
             />
-            <button
-              type="button"
-              className="store-icon-btn store-icon-btn--cart"
-              onClick={() => onOpenCart?.()}
-              aria-label="Корзина"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6 8h12l-1 11H7L6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                <path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              {cartCount ? <span className="store-cart-badge">{cartCount}</span> : null}
-            </button>
             <button type="button" className="store-icon-btn store-burger" onClick={() => setMenuOpen((open) => !open)} aria-label="Меню">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -813,11 +798,6 @@ export default function HomePage({
             <p>Время работы</p>
             <p>Ежедневно 10:00 — 22:00</p>
           </div>
-          {isAuthenticated ? (
-            <button type="button" className="store-footer__logout" onClick={onLogout}>
-              Выйти ({user?.username})
-            </button>
-          ) : null}
         </div>
       </footer>
 

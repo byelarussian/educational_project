@@ -181,10 +181,10 @@ class CartItem(models.Model):
 
     @property
     def line_total(self):
-        """Сумма позиции: цена товара × количество. Если цены нет — 0."""
-        if self.product.price is None:
-            return 0
-        return self.product.price * self.quantity
+        """Сумма позиции: витринная цена товара × количество."""
+        from .pricing import resolve_product_price
+
+        return resolve_product_price(self.product) * self.quantity
 
 
 class Order(models.Model):

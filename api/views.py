@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from .models import Task, Category, Product, ProductCategory, CartItem, Order, OrderItem
+from .pricing import resolve_product_price
 from .serializers import (
     TaskSerializer, TaskCreateUpdateSerializer,
     CategorySerializer, UserSerializer, UserRegistrationSerializer,
@@ -393,7 +394,7 @@ class CartViewSet(viewsets.ViewSet):
             )
             total = Decimal('0')
             for item in items:
-                price = item.product.price or Decimal('0')
+                price = resolve_product_price(item.product)
                 OrderItem.objects.create(
                     order=order,
                     product=item.product,

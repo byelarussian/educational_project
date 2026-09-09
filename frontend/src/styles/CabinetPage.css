@@ -1,5 +1,10 @@
 .cabinet-page {
-  background: #f6f6f4;
+  --cabinet-ink: #111111;
+  --cabinet-paper: #f3f3f3;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(243, 243, 243, 0.96)),
+    url('https://famshop.ru/wp-content/cache/thumb/51/c6aeb625b12e251_3840x2060.jpg') center top / cover fixed;
+  color: var(--cabinet-ink);
 }
 
 .cabinet-loading {
@@ -55,35 +60,134 @@
 }
 
 .cabinet-hero {
-  background: #111;
+  position: relative;
+  min-height: min(52vh, 460px);
+  background-color: #111;
+  background-size: cover;
+  background-position: center;
   color: #fff;
+  overflow: hidden;
+}
+
+.cabinet-hero__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.28) 58%, rgba(0, 0, 0, 0.18)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent 48%);
 }
 
 .cabinet-hero__inner {
+  position: relative;
+  z-index: 1;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 48px 24px 40px;
+  padding: 72px 24px 56px;
 }
 
 .cabinet-hero__kicker {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
+  font-family: 'Syne', sans-serif;
   font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #cfcfcf;
 }
 
 .cabinet-hero h1 {
-  margin: 0 0 10px;
-  font-size: 42px;
-  font-weight: 700;
+  margin: 0 0 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 800;
   letter-spacing: -0.03em;
+  line-height: 0.95;
+  max-width: 12ch;
 }
 
 .cabinet-hero__lead {
   margin: 0;
   color: #d4d4d4;
   max-width: 420px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.cabinet-mood {
+  border-bottom: 1px solid #e4e4e4;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.cabinet-mood__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px 32px;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: end;
+}
+
+.cabinet-mood__kicker {
+  margin: 0 0 8px;
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b6b6b;
+}
+
+.cabinet-mood__copy h2 {
+  margin: 0 0 8px;
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #111;
+}
+
+.cabinet-mood__copy p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #6b6b6b;
+}
+
+.cabinet-mood__link {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  border-bottom: 1px solid #111;
+}
+
+.cabinet-mood__strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cabinet-mood__shot {
+  margin: 0;
+  min-width: 0;
+}
+
+.cabinet-mood__shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: #ececec;
+  filter: saturate(0.92) contrast(1.04);
+}
+
+.cabinet-mood__shot figcaption {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b6b6b;
 }
 
 .cabinet-shell {
@@ -99,9 +203,10 @@
 .cabinet-nav {
   display: grid;
   gap: 4px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
   padding: 12px 8px;
   border: 1px solid #ececec;
+  backdrop-filter: blur(6px);
 }
 
 .cabinet-nav button {
@@ -147,8 +252,9 @@
 
 .cabinet-content h2 {
   margin: 0 0 18px;
+  font-family: 'Syne', sans-serif;
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .cabinet-status {
@@ -163,10 +269,11 @@
 .cabinet-empty,
 .cabinet-form,
 .cabinet-order {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid #ececec;
   padding: 22px;
   margin-bottom: 16px;
+  backdrop-filter: blur(6px);
 }
 
 .cabinet-card__head {
@@ -495,6 +602,14 @@
 }
 
 @media (max-width: 860px) {
+  .cabinet-mood__inner {
+    grid-template-columns: 1fr;
+  }
+
+  .cabinet-mood__strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .cabinet-shell,
   .cabinet-dl,
   .cabinet-form__row,
@@ -525,6 +640,10 @@
   .cabinet-form__row,
   .cabinet-tracker {
     grid-template-columns: 1fr;
+  }
+
+  .cabinet-mood__strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cabinet-nav {
