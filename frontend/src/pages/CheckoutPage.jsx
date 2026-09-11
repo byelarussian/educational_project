@@ -33,13 +33,17 @@ const EMPTY_FORM = {
   apartment: '',
   postal_code: '',
   payment_method: 'on_site',
+  card_number: '',
+  card_holder: '',
+  card_expiry: '',
+  card_cvv: '',
 }
 
 const PAYMENT_OPTIONS = [
   {
     value: 'cashless',
     title: 'Безналичный расчёт',
-    description: 'Оплата по реквизитам или переводом после подтверждения заказа',
+    description: 'Оплата картой онлайн: номер, имя держателя, срок действия и код с оборота',
   },
   {
     value: 'on_site',
@@ -47,6 +51,41 @@ const PAYMENT_OPTIONS = [
     description: 'Наличными или картой при получении в магазине на Бауманской',
   },
 ]
+
+/** Форматирует номер карты группами по 4 цифры. */
+function formatCardNumber(value) {
+  return String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 16)
+    .replace(/(\d{4})(?=\d)/g, '$1 ')
+    .trim()
+}
+
+/** Форматирует срок действия карты как MM/YY. */
+function formatCardExpiry(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`
+}
+
+/** Проверяет поля карты для безналичной оплаты. */
+function validateCardFields(form) {
+  const number = String(form.card_number || '').replace(/\D/g, '')
+  const holder = String(form.card_holder || '').trim()
+  const expiry = String(form.card_expiry || '').replace(/\s/g, '')
+  const cvv = String(form.card_cvv || '').replace(/\D/g, '')
+
+  if (number.length !== 16) return 'Введите 16-значный номер карты'
+  if (holder.length < 3 || !holder.includes(' ')) {
+    return 'Укажите имя и фамилию держателя карты латиницей'
+  }
+  const match = expiry.match(/^(\d{2})\/(\d{2})$/)
+  if (!match) return 'Укажите срок действия карты в формате ММ/ГГ'
+  const month = Number(match[1])
+  if (month < 1 || month > 12) return 'Месяц срока действия карты должен быть от 01 до 12'
+  if (cvv.length !== 3) return 'Введите 3 цифры кода с обратной стороны карты'
+  return ''
+}
 
 /**
  * Страница оформления заказа в духе famshop.ru/checkout:
@@ -123,7 +162,12 @@ export default function CheckoutPage({
   }, [])
 
   function updateField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }))
+    let nextValue = value
+    if (field === 'card_number') nextValue = formatCardNumber(value)
+    if (field === 'card_expiry') nextValue = formatCardExpiry(value)
+    if (field === 'card_cvv') nextValue = String(value || '').replace(/\D/g, '').slice(0, 3)
+    if (field === 'card_holder') nextValue = String(value || '').replace(/[^a-zA-Zа-яА-ЯёЁ\s.'-]/g, '').slice(0, 60)
+    setForm((current) => ({ ...current, [field]: nextValue }))
     setFormError('')
   }
 
@@ -145,11 +189,37 @@ export default function CheckoutPage({
       setFormError('Заполните имя, телефон, город и улицу')
       return
     }
+    if (form.payment_method === 'cashless') {
+      const cardError = validateCardFields(form)
+      if (cardError) {
+        setFormError(cardError)
+        return
+      }
+    }
 
-    const result = await onSubmitOrder?.(form)
+    const payload = {
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email,
+      phone: form.phone,
+      city: form.city,
+      street: form.street,
+      apartment: form.apartment,
+      postal_code: form.postal_code,
+      payment_method: form.payment_method,
+    }
+
+    const result = await onSubmitOrder?.(payload)
     if (result?.ok) {
       setDoneOrder(result.order)
       setFormError('')
+      setForm((current) => ({
+        ...current,
+        card_number: '',
+        card_holder: '',
+        card_expiry: '',
+        card_cvv: '',
+      }))
     } else {
       setFormError(result?.message || 'Не удалось оформить заказ')
       if (result?.requireRegistration) setNeedsAuth(true)
@@ -360,6 +430,60 @@ export default function CheckoutPage({
                     </label>
                   ))}
                 </div>
+
+                {form.payment_method === 'cashless' ? (
+                  <div className="checkout-card-panel" role="group" aria-label="Данные банковской карты">
+                    <h3>Данные карты</h3>
+                    <p className="checkout-card-panel__hint">
+                      Заполните поля для безналичной оплаты. Данные карты не сохраняются после оформления.
+                    </p>
+                    <div className="checkout-form__grid">
+                      <label className="checkout-form__full">
+                        Номер карты *
+                        <input
+                          value={form.card_number}
+                          onChange={(event) => updateField('card_number', event.target.value)}
+                          inputMode="numeric"
+                          autoComplete="cc-number"
+                          placeholder="0000 0000 0000 0000"
+                          required={form.payment_method === 'cashless'}
+                        />
+                      </label>
+                      <label className="checkout-form__full">
+                        Имя и фамилия держателя *
+                        <input
+                          value={form.card_holder}
+                          onChange={(event) => updateField('card_holder', event.target.value)}
+                          autoComplete="cc-name"
+                          placeholder="IVAN IVANOV"
+                          required={form.payment_method === 'cashless'}
+                        />
+                      </label>
+                      <label>
+                        Срок действия *
+                        <input
+                          value={form.card_expiry}
+                          onChange={(event) => updateField('card_expiry', event.target.value)}
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
+                          placeholder="ММ/ГГ"
+                          required={form.payment_method === 'cashless'}
+                        />
+                      </label>
+                      <label>
+                        Код с оборота (CVV) *
+                        <input
+                          value={form.card_cvv}
+                          onChange={(event) => updateField('card_cvv', event.target.value)}
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
+                          placeholder="000"
+                          required={form.payment_method === 'cashless'}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
               </fieldset>
 
               {(formError || message) && <p className="checkout-form__error">{formError || message}</p>}

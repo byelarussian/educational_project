@@ -1966,6 +1966,31 @@
   color: #666;
 }
 
+.checkout-card-panel {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #111;
+  background: #fafafa;
+}
+
+.checkout-card-panel h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.checkout-card-panel__hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #666;
+}
+
+.checkout-card-panel .checkout-form__grid {
+  margin-bottom: 0;
+}
+
 .checkout-success__payment {
   margin: -8px 0 20px !important;
   color: #111 !important;
