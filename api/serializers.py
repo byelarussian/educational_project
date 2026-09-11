@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Task, Category, Product, ProductCategory,
-    UserProfile, CartItem, Order, OrderItem,
+    UserProfile, CartItem, DeferredItem, Order, OrderItem,
 )
 
 
@@ -260,6 +260,27 @@ class CartAddSerializer(serializers.Serializer):
 class CartQuantitySerializer(serializers.Serializer):
     """Тело PATCH /cart/:id/ — новое количество позиции, не меньше 1."""
     quantity = serializers.IntegerField(min_value=1)
+
+
+class DeferredItemSerializer(serializers.ModelSerializer):
+    """Позиция списка отложенных: товар, размер, количество и сумма строки."""
+    product = ProductSerializer(read_only=True)
+    line_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DeferredItem
+        fields = ['id', 'product', 'size', 'quantity', 'line_total', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_line_total(self, obj):
+        return str(obj.line_total)
+
+
+class DeferredAddSerializer(serializers.Serializer):
+    """Тело POST /deferred/: товар, размер и количество."""
+    product_id = serializers.IntegerField()
+    size = serializers.CharField(max_length=32, required=True, allow_blank=False)
+    quantity = serializers.IntegerField(min_value=1, default=1, required=False)
 
 
 class CheckoutContactSerializer(serializers.Serializer):

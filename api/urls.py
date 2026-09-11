@@ -6,6 +6,7 @@ DefaultRouter сам создаёт набор URL для каждого ViewSet
   /categories/, /users/me/, /users/change_password/
   /product-categories/, /products/, /products/by_category/
   /cart/, /cart/{id}/, /cart/checkout/
+  /deferred/, /deferred/{id}/, /deferred/{id}/to-cart/
   /orders/
 """
 from django.urls import path, include
@@ -20,6 +21,7 @@ router.register(r'users', views.UserViewSet)
 router.register(r'product-categories', views.ProductCategoryViewSet)
 router.register(r'products', views.ProductViewSet)
 router.register(r'cart', views.CartViewSet, basename='cart')
+router.register(r'deferred', views.DeferredViewSet, basename='deferred')
 router.register(r'orders', views.OrderViewSet, basename='order')
 
 urlpatterns = [

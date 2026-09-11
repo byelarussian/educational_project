@@ -10,14 +10,15 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
-from .models import Task, Category, Product, ProductCategory, CartItem, Order, OrderItem
+from .models import Task, Category, Product, ProductCategory, CartItem, DeferredItem, Order, OrderItem
 from .pricing import resolve_product_price
 from .serializers import (
     TaskSerializer, TaskCreateUpdateSerializer,
     CategorySerializer, UserSerializer, UserRegistrationSerializer,
     ProductSerializer, ProductCategorySerializer,
     ProfileUpdateSerializer, CartItemSerializer, CartAddSerializer,
-    CartQuantitySerializer, OrderSerializer, get_or_create_profile,
+    CartQuantitySerializer, DeferredItemSerializer, DeferredAddSerializer,
+    OrderSerializer, get_or_create_profile,
     CheckoutContactSerializer,
 )
 
@@ -427,6 +428,83 @@ class CartViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
+
+
+def serialize_deferred(user):
+    """Собирает список отложенных: позиции и количество позиций."""
+    items = DeferredItem.objects.filter(user=user).select_related('product', 'product__category')
+    return {
+        'items': DeferredItemSerializer(items, many=True).data,
+        'count': items.count(),
+    }
+
+
+class DeferredViewSet(viewsets.ViewSet):
+    """Отложенные товары: список, добавление, удаление, перенос в корзину."""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """GET /deferred/ — список отложенных товаров."""
+        return Response(serialize_deferred(request.user))
+
+    def create(self, request):
+        """POST /deferred/ — добавляет товар в отложенные (или увеличивает quantity)."""
+        serializer = DeferredAddSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_id = serializer.validated_data['product_id']
+        quantity = serializer.validated_data['quantity']
+        size = serializer.validated_data['size'].strip()
+
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            return Response({'error': 'Товар не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        item, created = DeferredItem.objects.get_or_create(
+            user=request.user,
+            product=product,
+            size=size,
+            defaults={'quantity': quantity},
+        )
+        if not created:
+            item.quantity += quantity
+            item.save()
+
+        return Response(
+            serialize_deferred(request.user),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def destroy(self, request, pk=None):
+        """DELETE /deferred/{id}/ — убирает позицию из отложенных."""
+        deleted, _ = DeferredItem.objects.filter(pk=pk, user=request.user).delete()
+        if not deleted:
+            return Response({'error': 'Позиция не найдена'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serialize_deferred(request.user))
+
+    @action(detail=True, methods=['post'], url_path='to-cart')
+    def to_cart(self, request, pk=None):
+        """POST /deferred/{id}/to-cart/ — переносит позицию в корзину и удаляет из отложенных."""
+        try:
+            item = DeferredItem.objects.select_related('product').get(pk=pk, user=request.user)
+        except DeferredItem.DoesNotExist:
+            return Response({'error': 'Позиция не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+        cart_item, created = CartItem.objects.get_or_create(
+            user=request.user,
+            product=item.product,
+            size=item.size,
+            defaults={'quantity': item.quantity},
+        )
+        if not created:
+            cart_item.quantity += item.quantity
+            cart_item.save()
+        item.delete()
+
+        return Response({
+            'deferred': serialize_deferred(request.user),
+            'cart': serialize_cart(request.user),
+        })
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):

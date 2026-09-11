@@ -229,3 +229,30 @@ export function guestCheckout(payload) {
 export function fetchOrders() {
   return request('/orders/')
 }
+
+/** GET /deferred/ — отложенные товары: items, count. */
+export function fetchDeferred() {
+  return request('/deferred/')
+}
+
+/** POST /deferred/ — добавляет товар в отложенные. */
+export function addToDeferred({ product_id, size, quantity = 1 }) {
+  return request('/deferred/', {
+    method: 'POST',
+    body: JSON.stringify({ product_id, size, quantity }),
+  })
+}
+
+/** DELETE /deferred/:id/ — убирает позицию из отложенных. */
+export function removeDeferredItem(id) {
+  return request(`/deferred/${id}/`, {
+    method: 'DELETE',
+  })
+}
+
+/** POST /deferred/:id/to-cart/ — переносит позицию в корзину. */
+export function moveDeferredToCart(id) {
+  return request(`/deferred/${id}/to-cart/`, {
+    method: 'POST',
+  })
+}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StoreProductCard from '../components/StoreProductCard.jsx'
 import StorePillNav from '../components/StorePillNav.jsx'
+import { openCookieSettings } from '../components/CookieConsent.jsx'
 import { fetchProducts, fetchProductsByCategory } from '../api'
 import '../styles/HomePage.css'
 
@@ -277,6 +278,9 @@ export default function HomePage({
   cartCount = 0,
   onOpenCart,
   onAddToCart,
+  deferredItems = [],
+  deferredBusy = false,
+  onToggleDeferred,
 }) {
   const [products, setProducts] = useState([])
   const [heroIndex, setHeroIndex] = useState(0)
@@ -287,6 +291,10 @@ export default function HomePage({
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartNotice, setCartNotice] = useState('')
   const [legalDoc, setLegalDoc] = useState(null)
+
+  const deferredProductIds = useMemo(() => {
+    return new Set(deferredItems.map((item) => item.product?.id).filter((id) => id != null))
+  }, [deferredItems])
 
   const searchTokens = useMemo(() => tokenizeQuery(searchQuery), [searchQuery])
   const isSearching = searchTokens.length > 0
@@ -398,6 +406,20 @@ export default function HomePage({
     const result = await onAddToCart?.(product, options)
     setCartNotice(result?.ok ? 'Товар добавлен в корзину' : result?.message || '')
     window.setTimeout(() => setCartNotice(''), 2200)
+  }
+
+  /** Сердечко: в отложенные (с размером) / убрать из отложенных. */
+  async function handleHeartToggle(product, isDeferred, options) {
+    const result = await onToggleDeferred?.(product, isDeferred, options)
+    if (result?.needAuth) {
+      setCartNotice('Войдите, чтобы сохранить в отложенные')
+    } else if (result?.ok) {
+      setCartNotice(result.deferred ? 'Товар сохранён в отложенные' : 'Товар убран из отложенных')
+    } else if (result?.message) {
+      setCartNotice(result.message)
+    }
+    window.setTimeout(() => setCartNotice(''), 2200)
+    return result
   }
 
   function handleSearchSubmit(event) {
@@ -631,7 +653,15 @@ export default function HomePage({
           {visibleSearchResults.length ? (
             <div className="store-rail__grid">
               {visibleSearchResults.map((product) => (
-                <StoreProductCard key={product.id} product={product} onAddToCart={handleAddProduct} />
+                <StoreProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={handleAddProduct}
+                  deferred={deferredProductIds.has(product.id)}
+                  deferredBusy={deferredBusy}
+                  onToggleDeferred={handleHeartToggle}
+                  isAuthenticated={isAuthenticated}
+                />
               ))}
             </div>
           ) : null}
@@ -643,10 +673,13 @@ export default function HomePage({
       <ProductRail
         id="novinki"
         title="Новинки"
-        tag="New"
         description="Самые свежие новинки головных уборов от известных мировых брендов в FAM"
         products={novelties}
         onAddToCart={handleAddProduct}
+        deferredProductIds={deferredProductIds}
+        deferredBusy={deferredBusy}
+        onToggleDeferred={handleHeartToggle}
+        isAuthenticated={isAuthenticated}
       />
 
       <section className="store-about" id="about">
@@ -666,10 +699,13 @@ export default function HomePage({
 
       <ProductRail
         title="Бестселлеры"
-        tag="Best"
         description="Ваш выбор, лучшие из лучших"
         products={bestsellers.length ? bestsellers : novelties}
         onAddToCart={handleAddProduct}
+        deferredProductIds={deferredProductIds}
+        deferredBusy={deferredBusy}
+        onToggleDeferred={handleHeartToggle}
+        isAuthenticated={isAuthenticated}
       />
 
       <ProductRail
@@ -677,6 +713,10 @@ export default function HomePage({
         description="Американский культовый бренд со 100-летней историей, те самые бейсболки с бейсбольных стадионов и из музыкальных клипов."
         products={newEraProducts.length ? newEraProducts : novelties}
         onAddToCart={handleAddProduct}
+        deferredProductIds={deferredProductIds}
+        deferredBusy={deferredBusy}
+        onToggleDeferred={handleHeartToggle}
+        isAuthenticated={isAuthenticated}
       />
 
       <ProductRail
@@ -685,6 +725,10 @@ export default function HomePage({
         description="Честные цены на оригинальные модели"
         products={saleProducts.length ? saleProducts : displayProducts.slice(-8)}
         onAddToCart={handleAddProduct}
+        deferredProductIds={deferredProductIds}
+        deferredBusy={deferredBusy}
+        onToggleDeferred={handleHeartToggle}
+        isAuthenticated={isAuthenticated}
       />
         </>
       ) : null}
@@ -785,6 +829,9 @@ export default function HomePage({
           </button>
           <button type="button" className="store-footer__link" onClick={() => setLegalDoc('privacy')}>
             Политика обработки персональных данных
+          </button>
+          <button type="button" className="store-footer__link" onClick={openCookieSettings}>
+            Ваши cookies
           </button>
         </div>
 
@@ -901,7 +948,18 @@ export default function HomePage({
 /**
  * Горизонтальная полка товаров на главной: заголовок, описание и сетка карточек StoreProductCard.
  */
-function ProductRail({ id, title, tag, description, products, onAddToCart }) {
+function ProductRail({
+  id,
+  title,
+  tag,
+  description,
+  products,
+  onAddToCart,
+  deferredProductIds,
+  deferredBusy,
+  onToggleDeferred,
+  isAuthenticated,
+}) {
   return (
     <section className="store-rail" id={id}>
       <div className="store-rail__header">
@@ -914,7 +972,15 @@ function ProductRail({ id, title, tag, description, products, onAddToCart }) {
       {products.length ? (
         <div className="store-rail__grid">
           {products.map((product) => (
-            <StoreProductCard key={product.id} product={product} onAddToCart={onAddToCart} />
+            <StoreProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              deferred={deferredProductIds?.has(product.id)}
+              deferredBusy={deferredBusy}
+              onToggleDeferred={onToggleDeferred}
+              isAuthenticated={isAuthenticated}
+            />
           ))}
         </div>
       ) : (

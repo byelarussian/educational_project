@@ -6,7 +6,7 @@ const HAT_SIZES = ['55', '56', '57', '58', '59', '60', '61', '62']
 /**
  * Содержимое модалки размера — состояние сбрасывается при каждом открытии через key.
  */
-function SizeSelectModalContent({ product, onClose, onConfirm }) {
+function SizeSelectModalContent({ product, confirmLabel, onClose, onConfirm }) {
   const [size, setSize] = useState('')
   const [error, setError] = useState('')
 
@@ -53,7 +53,7 @@ function SizeSelectModalContent({ product, onClose, onConfirm }) {
         </div>
         {error ? <p className="store-size-modal__error">{error}</p> : null}
         <button type="button" className="store-size-modal__submit" onClick={handleConfirm}>
-          В корзину
+          {confirmLabel}
         </button>
       </div>
     </div>
@@ -61,16 +61,24 @@ function SizeSelectModalContent({ product, onClose, onConfirm }) {
 }
 
 /**
- * Модалка выбора размера перед добавлением в корзину.
+ * Модалка выбора размера перед добавлением в корзину или в отложенные.
  * Закрывается по Escape, фону и крестику.
  */
-export default function SizeSelectModal({ open, product, onClose, onConfirm }) {
+export default function SizeSelectModal({
+  open,
+  product,
+  onClose,
+  onConfirm,
+  confirmLabel = 'В корзину',
+  purpose = 'cart',
+}) {
   if (!open || !product) return null
 
   return (
     <SizeSelectModalContent
-      key={product.id}
+      key={`${product.id}-${purpose}`}
       product={product}
+      confirmLabel={confirmLabel}
       onClose={onClose}
       onConfirm={onConfirm}
     />

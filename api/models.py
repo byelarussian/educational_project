@@ -187,6 +187,34 @@ class CartItem(models.Model):
         return resolve_product_price(self.product) * self.quantity
 
 
+class DeferredItem(models.Model):
+    """Отложенный товар: список «на потом» в личном кабинете.
+
+    Как корзина, пара user+product+size уникальна; количество сохраняется
+    при переносе из корзины.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deferred_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='deferred_items')
+    size = models.CharField(max_length=32, blank=True, default='')
+    quantity = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'product', 'size']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        size_part = f' ({self.size})' if self.size else ''
+        return f'{self.user.username} deferred × {self.product.title}{size_part}'
+
+    @property
+    def line_total(self):
+        from .pricing import resolve_product_price
+
+        return resolve_product_price(self.product) * self.quantity
+
+
 class Order(models.Model):
     """Оформленный заказ: снимок контактов/адреса, статус доставки и итоговая сумма.
 

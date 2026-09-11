@@ -10,8 +10,10 @@ import CategoriesPage from './pages/CategoriesPage.jsx'
 import ProductsPage from './pages/ProductsPage.jsx'
 import CartDrawer from './components/CartDrawer.jsx'
 import CheckoutPage from './pages/CheckoutPage.jsx'
+import CookieConsent from './components/CookieConsent.jsx'
 import {
   addToCart,
+  addToDeferred,
   changeTaskStatus,
   checkoutCart,
   createCategory,
@@ -20,6 +22,7 @@ import {
   deleteTask,
   fetchCart,
   fetchCategories,
+  fetchDeferred,
   fetchMe,
   fetchProducts,
   fetchTasks,
@@ -27,6 +30,7 @@ import {
   logout,
   register,
   removeCartItem,
+  removeDeferredItem,
   updateCartItem,
   updateCategory,
   updateTask,
@@ -91,6 +95,8 @@ function AppContent() {
   const [cart, setCart] = useState(() => readGuestCart())
   const [cartBusy, setCartBusy] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
+  const [deferredItems, setDeferredItems] = useState([])
+  const [deferredBusy, setDeferredBusy] = useState(false)
   const [tasks, setTasks] = useState([])
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -248,29 +254,34 @@ function AppContent() {
   }, [token, productPage])
 
   useEffect(() => {
-    if (!token) return undefined
+    if (!token) {
+      setDeferredItems([])
+      return undefined
+    }
 
     let cancelled = false
 
-    /** Загружает корзину текущего пользователя; при ошибке показывает пустую. */
-    async function loadCurrentCart() {
+    /** Загружает корзину и отложенные текущего пользователя. */
+    async function loadCartAndDeferred() {
       try {
-        const response = await fetchCart()
+        const [cartResponse, deferredResponse] = await Promise.all([fetchCart(), fetchDeferred()])
         if (!cancelled) {
           setCart({
-            items: response.items || [],
-            total: response.total || '0',
-            count: response.count || 0,
+            items: cartResponse.items || [],
+            total: cartResponse.total || '0',
+            count: cartResponse.count || 0,
           })
+          setDeferredItems(deferredResponse?.items || [])
         }
       } catch {
         if (!cancelled) {
           setCart({ items: [], total: '0', count: 0 })
+          setDeferredItems([])
         }
       }
     }
 
-    loadCurrentCart()
+    loadCartAndDeferred()
     return () => {
       cancelled = true
     }
@@ -573,6 +584,45 @@ function AppContent() {
     }
   }
 
+  /**
+   * Добавляет или убирает товар из отложенных (сердечко на карточке).
+   * При добавлении нужен размер — как в корзине. Без аккаунта — просим войти.
+   */
+  async function handleToggleDeferred(product, isDeferred, { size } = {}) {
+    if (!isAuthenticated) {
+      navigate('/login')
+      setMessage('Войдите, чтобы сохранить товар в отложенные')
+      return { ok: false, needAuth: true }
+    }
+
+    setDeferredBusy(true)
+    try {
+      if (isDeferred) {
+        const matches = deferredItems.filter((item) => item.product?.id === product.id)
+        let nextItems = deferredItems
+        for (const item of matches) {
+          const response = await removeDeferredItem(item.id)
+          nextItems = response?.items || []
+        }
+        setDeferredItems(nextItems)
+        return { ok: true, deferred: false }
+      }
+
+      if (!size) {
+        return { ok: false, message: 'Выберите размер' }
+      }
+
+      const response = await addToDeferred({ product_id: product.id, size, quantity: 1 })
+      setDeferredItems(response?.items || [])
+      return { ok: true, deferred: true }
+    } catch (error) {
+      setMessage(error.data?.error || 'Не удалось обновить отложенные')
+      return { ok: false, message: error.data?.error || 'Не удалось обновить отложенные' }
+    } finally {
+      setDeferredBusy(false)
+    }
+  }
+
   async function handleCartQuantity(item, nextQuantity) {
     if (nextQuantity < 1) return
     setCartBusy(true)
@@ -689,6 +739,9 @@ function AppContent() {
                   cartCount={cart.count}
                   onOpenCart={() => setCartOpen(true)}
                   onAddToCart={handleAddToCart}
+                  deferredItems={deferredItems}
+                  deferredBusy={deferredBusy}
+                  onToggleDeferred={handleToggleDeferred}
                 />
               }
             />
@@ -743,6 +796,9 @@ function AppContent() {
                   onRemove={handleCartRemove}
                   onSubmitOrder={handleSubmitCheckout}
                   onAddToCart={handleAddToCart}
+                  deferredItems={deferredItems}
+                  deferredBusy={deferredBusy}
+                  onToggleDeferred={handleToggleDeferred}
                   onOpenCart={() => setCartOpen(true)}
                 />
               }
@@ -857,6 +913,8 @@ function AppContent() {
           onQuantity={handleCartQuantity}
           onRemove={handleCartRemove}
         />
+
+        <CookieConsent />
       </div>
   )
 }

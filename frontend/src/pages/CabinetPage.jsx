@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import StorePillNav from '../components/StorePillNav.jsx'
+import SizeSelectModal from '../components/SizeSelectModal.jsx'
 import {
+  addToCart,
   changePassword,
   checkoutCart,
+  fetchDeferred,
   fetchOrders,
+  addToDeferred,
+  moveDeferredToCart,
   removeCartItem,
+  removeDeferredItem,
   updateCartItem,
   updateMe,
 } from '../api'
@@ -19,6 +25,7 @@ const TABS = [
   { id: 'orders', label: 'Заказы' },
   { id: 'tracking', label: 'Отслеживание' },
   { id: 'cart', label: 'Корзина' },
+  { id: 'deferred', label: 'Отложенные' },
   { id: 'password', label: 'Пароль' },
 ]
 
@@ -163,7 +170,7 @@ function OrderTracker({ status }) {
 }
 
 /**
- * Личный кабинет: вкладки профиль, адрес, заказы, отслеживание, корзина и смена пароля.
+ * Личный кабинет: вкладки профиль, адрес, заказы, отслеживание, корзина, отложенные и смена пароля.
  * Активная вкладка читается из ?tab= в URL.
  */
 export default function CabinetPage({
@@ -185,6 +192,8 @@ export default function CabinetPage({
   const navigate = useNavigate()
   const tab = TABS.some((item) => item.id === searchParams.get('tab')) ? searchParams.get('tab') : 'overview'
   const [orders, setOrders] = useState([])
+  const [deferred, setDeferred] = useState({ items: [], count: 0 })
+  const [sizePickItem, setSizePickItem] = useState(null)
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const [profile, setProfile] = useState(() => profileFromUser(user))
@@ -204,16 +213,25 @@ export default function CabinetPage({
 
   useEffect(() => {
     let cancelled = false
-    /** Загружает заказы пользователя один раз при открытии кабинета. */
-    async function loadOrders() {
+    /** Загружает заказы и отложенные при открытии кабинета. */
+    async function loadCabinetData() {
       try {
-        const data = await fetchOrders()
-        if (!cancelled) setOrders(Array.isArray(data) ? data : data.results || [])
+        const [ordersData, deferredData] = await Promise.all([fetchOrders(), fetchDeferred()])
+        if (!cancelled) {
+          setOrders(Array.isArray(ordersData) ? ordersData : ordersData.results || [])
+          setDeferred({
+            items: deferredData?.items || [],
+            count: deferredData?.count || 0,
+          })
+        }
       } catch {
-        if (!cancelled) setOrders([])
+        if (!cancelled) {
+          setOrders([])
+          setDeferred({ items: [], count: 0 })
+        }
       }
     }
-    loadOrders()
+    loadCabinetData()
     return () => {
       cancelled = true
     }
@@ -222,6 +240,8 @@ export default function CabinetPage({
   const displayName = user?.first_name || user?.username || 'друг'
   const cartItems = cart?.items || []
   const cartCount = cart?.count || 0
+  const deferredItems = deferred?.items || []
+  const deferredCount = deferred?.count || deferredItems.length
 
   const latestOrder = orders[0]
   const activeOrders = useMemo(
@@ -322,6 +342,100 @@ export default function CabinetPage({
     }
   }
 
+  /** Переносит позицию из корзины в отложенные. */
+  async function handleDeferCartItem(item) {
+    if (!item?.product?.id || !item.size) {
+      setStatus('Не удалось отложить: укажите размер товара')
+      return
+    }
+    setBusy(true)
+    setStatus('')
+    try {
+      const nextDeferred = await addToDeferred({
+        product_id: item.product.id,
+        size: item.size,
+        quantity: item.quantity || 1,
+      })
+      const nextCart = await removeCartItem(item.id)
+      setDeferred({
+        items: nextDeferred?.items || [],
+        count: nextDeferred?.count || 0,
+      })
+      onCartChange(nextCart)
+      setStatus('Товар перенесён в отложенные')
+    } catch (error) {
+      setStatus(error.data?.error || 'Не удалось отложить товар')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Удаляет позицию из отложенных. */
+  async function handleRemoveDeferred(item) {
+    setBusy(true)
+    setStatus('')
+    try {
+      const nextDeferred = await removeDeferredItem(item.id)
+      setDeferred({
+        items: nextDeferred?.items || [],
+        count: nextDeferred?.count || 0,
+      })
+    } catch (error) {
+      setStatus(error.data?.error || 'Не удалось удалить из отложенных')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Переносит отложенный товар в корзину (если нет размера — сначала выбор размера). */
+  async function handleMoveDeferredToCart(item) {
+    if (!item.size) {
+      setSizePickItem(item)
+      return
+    }
+    setBusy(true)
+    setStatus('')
+    try {
+      const response = await moveDeferredToCart(item.id)
+      setDeferred({
+        items: response?.deferred?.items || [],
+        count: response?.deferred?.count || 0,
+      })
+      if (response?.cart) onCartChange(response.cart)
+      setStatus('Товар добавлен в корзину')
+    } catch (error) {
+      setStatus(error.data?.error || 'Не удалось перенести в корзину')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** После выбора размера: в корзину и удаление из отложенных. */
+  async function handleDeferredSizeConfirm(size) {
+    if (!sizePickItem?.product?.id) return
+    setBusy(true)
+    setStatus('')
+    try {
+      const nextCart = await addToCart({
+        product_id: sizePickItem.product.id,
+        size,
+        quantity: sizePickItem.quantity || 1,
+      })
+      const nextDeferred = await removeDeferredItem(sizePickItem.id)
+      onCartChange(nextCart)
+      setDeferred({
+        items: nextDeferred?.items || [],
+        count: nextDeferred?.count || 0,
+      })
+      setSizePickItem(null)
+      setStatus('Товар добавлен в корзину')
+    } catch (error) {
+      setStatus(error.data?.error || 'Не удалось перенести в корзину')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /** Оформляет заказ; если нет адреса — переключает на вкладку «Адрес» и показывает ошибку API. */
   async function handleCheckout() {
     setBusy(true)
@@ -369,6 +483,14 @@ export default function CabinetPage({
             >
               Корзина
             </button>
+            <button
+              type="button"
+              className={tab === 'deferred' ? 'is-active' : ''}
+              onClick={() => openTab('deferred')}
+            >
+              Отложенные
+              {deferredCount ? <span className="cabinet-topnav__count">{deferredCount}</span> : null}
+            </button>
           </nav>
           <div className="store-header__actions">
             <StorePillNav
@@ -397,33 +519,7 @@ export default function CabinetPage({
         <div className="cabinet-hero__inner">
           <p className="cabinet-hero__kicker">Личный кабинет</p>
           <h1>Привет, {displayName}</h1>
-          <p className="cabinet-hero__lead">Заказы, отслеживание, данные, доставка и корзина — в одном месте.</p>
-        </div>
-      </section>
-
-      <section className="cabinet-mood" aria-label="Бейсболки с прямым козырьком">
-        <div className="cabinet-mood__inner">
-          <div className="cabinet-mood__copy">
-            <p className="cabinet-mood__kicker">Flat brim</p>
-            <h2>Мужские бейсболки с прямым козырьком</h2>
-            <p>Атмосфера кабинета — в духе подборок fitted и snapback с прямым козырьком.</p>
-            <a
-              className="cabinet-mood__link"
-              href="https://ru.pinterest.com/search/pins/?q=%D0%B1%D0%B5%D0%B9%D1%81%D0%B1%D0%BE%D0%BB%D0%BA%D0%B8%20%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B8%D0%B5%20%D1%81%20%D0%BF%D1%80%D1%8F%D0%BC%D1%8B%D0%BC%20%D0%BA%D0%BE%D0%B7%D1%8B%D1%80%D1%8C%D0%BA%D0%BE%D0%BC&rs=typed"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Смотреть вдохновение
-            </a>
-          </div>
-          <div className="cabinet-mood__strip">
-            {CABINET_MOOD.strip.map((item) => (
-              <figure key={item.label} className="cabinet-mood__shot">
-                <img src={item.src} alt={item.label} loading="lazy" />
-                <figcaption>{item.label}</figcaption>
-              </figure>
-            ))}
-          </div>
+          <p className="cabinet-hero__lead">Заказы, отслеживание, корзина и отложенные — в одном месте.</p>
         </div>
       </section>
 
@@ -443,6 +539,7 @@ export default function CabinetPage({
             >
               {item.label}
               {item.id === 'cart' && cartCount ? <span>{cartCount}</span> : null}
+              {item.id === 'deferred' && deferredCount ? <span>{deferredCount}</span> : null}
               {item.id === 'orders' && activeOrders.length ? <span>{activeOrders.length}</span> : null}
               {item.id === 'tracking' && activeOrders.length ? <span>{activeOrders.length}</span> : null}
             </button>
@@ -712,7 +809,7 @@ export default function CabinetPage({
                 <>
                   <ul className="cabinet-cart__list">
                     {cartItems.map((item) => (
-                      <li key={item.id}>
+                      <li key={item.id} className="cabinet-cart__card">
                         {item.product?.image_url ? (
                           <img src={item.product.image_url} alt="" />
                         ) : (
@@ -722,20 +819,45 @@ export default function CabinetPage({
                           <p>{item.product?.title}</p>
                           {item.size ? <small>Размер: {item.size}</small> : null}
                           <small>{formatPrice(item.product?.price, item.product?.currency)}</small>
+                          <div className="cabinet-cart__controls">
+                            <div className="cabinet-qty" aria-label="Количество товара">
+                              <button
+                                type="button"
+                                onClick={() => handleQuantity(item, item.quantity - 1)}
+                                disabled={busy || item.quantity <= 1}
+                                aria-label="Уменьшить количество"
+                              >
+                                −
+                              </button>
+                              <span>{item.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuantity(item, item.quantity + 1)}
+                                disabled={busy}
+                                aria-label="Увеличить количество"
+                              >
+                                +
+                              </button>
+                            </div>
+                            <strong>{formatPrice(item.line_total, item.product?.currency)}</strong>
+                            <button
+                              type="button"
+                              className="cabinet-link"
+                              onClick={() => handleDeferCartItem(item)}
+                              disabled={busy}
+                            >
+                              Отложить
+                            </button>
+                            <button
+                              type="button"
+                              className="cabinet-link"
+                              onClick={() => handleRemove(item)}
+                              disabled={busy}
+                            >
+                              Удалить
+                            </button>
+                          </div>
                         </div>
-                        <div className="cabinet-qty">
-                          <button type="button" onClick={() => handleQuantity(item, item.quantity - 1)} disabled={busy}>
-                            −
-                          </button>
-                          <span>{item.quantity}</span>
-                          <button type="button" onClick={() => handleQuantity(item, item.quantity + 1)} disabled={busy}>
-                            +
-                          </button>
-                        </div>
-                        <strong>{formatPrice(item.line_total, item.product?.currency)}</strong>
-                        <button type="button" className="cabinet-link" onClick={() => handleRemove(item)} disabled={busy}>
-                          Удалить
-                        </button>
                       </li>
                     ))}
                   </ul>
@@ -754,6 +876,60 @@ export default function CabinetPage({
                   <p>Добавьте новинки с витрины — они появятся здесь.</p>
                   <Link to="/" className="cabinet-btn">
                     Перейти в магазин
+                  </Link>
+                </article>
+              )}
+            </div>
+          ) : null}
+
+          {tab === 'deferred' ? (
+            <div className="cabinet-cart cabinet-deferred">
+              <h2>Отложенные</h2>
+              {deferredItems.length ? (
+                <ul className="cabinet-cart__list">
+                  {deferredItems.map((item) => (
+                    <li key={item.id} className="cabinet-cart__card">
+                      {item.product?.image_url ? (
+                        <img src={item.product.image_url} alt="" />
+                      ) : (
+                        <span className="cabinet-thumb" />
+                      )}
+                      <div className="cabinet-cart__info">
+                        <p>{item.product?.title}</p>
+                        {item.size ? <small>Размер: {item.size}</small> : null}
+                        <small>
+                          {item.quantity > 1 ? `${item.quantity} × ` : ''}
+                          {formatPrice(item.product?.price, item.product?.currency)}
+                        </small>
+                        <div className="cabinet-cart__controls">
+                          <strong>{formatPrice(item.line_total, item.product?.currency)}</strong>
+                          <button
+                            type="button"
+                            className="cabinet-btn cabinet-btn--compact"
+                            onClick={() => handleMoveDeferredToCart(item)}
+                            disabled={busy}
+                          >
+                            В корзину
+                          </button>
+                          <button
+                            type="button"
+                            className="cabinet-link"
+                            onClick={() => handleRemoveDeferred(item)}
+                            disabled={busy}
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <article className="cabinet-empty">
+                  <h2>Пока пусто</h2>
+                  <p>Нажмите сердечко на карточке товара в магазине — он появится здесь.</p>
+                  <Link to="/" className="cabinet-btn cabinet-btn--outline">
+                    В магазин
                   </Link>
                 </article>
               )}
@@ -802,6 +978,39 @@ export default function CabinetPage({
           ) : null}
         </section>
       </div>
+
+      <section className="cabinet-mood" aria-label="Бейсболки с прямым козырьком">
+        <div className="cabinet-mood__inner">
+          <div className="cabinet-mood__copy">
+            <p className="cabinet-mood__kicker">Flat brim</p>
+            <h2>Мужские бейсболки с прямым козырьком</h2>
+            <p>Атмосфера кабинета — в духе подборок fitted и snapback с прямым козырьком.</p>
+            <a
+              className="cabinet-mood__link"
+              href="https://ru.pinterest.com/search/pins/?q=%D0%B1%D0%B5%D0%B9%D1%81%D0%B1%D0%BE%D0%BB%D0%BA%D0%B8%20%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B8%D0%B5%20%D1%81%20%D0%BF%D1%80%D1%8F%D0%BC%D1%8B%D0%BC%20%D0%BA%D0%BE%D0%B7%D1%8B%D1%80%D1%8C%D0%BA%D0%BE%D0%BC&rs=typed"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Смотреть вдохновение
+            </a>
+          </div>
+          <div className="cabinet-mood__strip">
+            {CABINET_MOOD.strip.map((item) => (
+              <figure key={item.label} className="cabinet-mood__shot">
+                <img src={item.src} alt={item.label} loading="lazy" />
+                <figcaption>{item.label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <SizeSelectModal
+        open={Boolean(sizePickItem)}
+        product={sizePickItem?.product}
+        onClose={() => setSizePickItem(null)}
+        onConfirm={handleDeferredSizeConfirm}
+      />
     </div>
   )
 }

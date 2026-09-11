@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Task, Category, TaskCategory, Product, ProductCategory,
-    UserProfile, CartItem, Order, OrderItem,
+    UserProfile, CartItem, DeferredItem, Order, OrderItem,
 )
 
 
@@ -73,6 +73,14 @@ class CartItemAdmin(admin.ModelAdmin):
     """Текущие корзины пользователей: кто что положил и сколько."""
     list_display = ['user', 'product', 'quantity', 'updated_at']
     list_filter = ['updated_at']
+
+
+@admin.register(DeferredItem)
+class DeferredItemAdmin(admin.ModelAdmin):
+    """Отложенные товары пользователей."""
+    list_display = ['user', 'product', 'size', 'quantity', 'updated_at']
+    list_filter = ['updated_at']
+    search_fields = ['user__username', 'product__title']
 
 
 class OrderItemInline(admin.TabularInline):

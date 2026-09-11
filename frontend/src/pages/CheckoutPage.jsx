@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StoreProductCard from '../components/StoreProductCard.jsx'
 import StorePillNav from '../components/StorePillNav.jsx'
@@ -107,9 +107,16 @@ export default function CheckoutPage({
   onRemove,
   onSubmitOrder,
   onAddToCart,
+  deferredItems = [],
+  deferredBusy = false,
+  onToggleDeferred,
   onOpenCart,
 }) {
   const items = cart?.items || []
+  const deferredProductIds = useMemo(
+    () => new Set(deferredItems.map((item) => item.product?.id).filter((id) => id != null)),
+    [deferredItems],
+  )
   const userKey = user?.id ?? 'guest'
   const [formUserKey, setFormUserKey] = useState(userKey)
   const [form, setForm] = useState(() => ({
@@ -511,7 +518,15 @@ export default function CheckoutPage({
             <h2>Также покупают</h2>
             <div className="store-rail__grid">
               {alsoBuy.map((product) => (
-                <StoreProductCard key={product.id} product={product} onAddToCart={onAddToCart} />
+                <StoreProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={onAddToCart}
+                  deferred={deferredProductIds.has(product.id)}
+                  deferredBusy={deferredBusy}
+                  onToggleDeferred={onToggleDeferred}
+                  isAuthenticated={isAuthenticated}
+                />
               ))}
             </div>
           </section>
