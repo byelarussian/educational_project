@@ -397,8 +397,9 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 22px;
   border: 0;
+  border-radius: 999px;
   background: #111;
   color: #fff;
   font-size: 13px;
@@ -427,11 +428,19 @@
   background: #fff;
   color: #111;
   border: 1px solid #111;
+  outline: none;
+  box-shadow: none;
 }
 
-.cabinet-btn--outline:hover {
-  background: #f4f4f4;
+.cabinet-btn--outline:hover,
+.cabinet-btn--outline:focus,
+.cabinet-btn--outline:focus-visible,
+.cabinet-btn--outline:active {
+  background: #fff;
   color: #111;
+  border-color: #111;
+  outline: none;
+  box-shadow: none;
 }
 
 .cabinet-tracker {

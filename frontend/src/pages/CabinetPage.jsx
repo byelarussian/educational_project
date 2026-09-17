@@ -595,7 +595,7 @@ export default function CabinetPage({
                 <article className="cabinet-empty">
                   <h2>Заказов пока нет</h2>
                   <p>Соберите первую бейсболку в корзину и оформите доставку.</p>
-                  <Link to="/" className="cabinet-btn">
+                  <Link to="/" className="cabinet-btn cabinet-btn--outline">
                     В магазин
                   </Link>
                 </article>
@@ -727,7 +727,7 @@ export default function CabinetPage({
                 <article className="cabinet-empty">
                   <h2>Здесь появятся ваши заказы</h2>
                   <p>После оформления заказа здесь можно следить за сборкой и доставкой.</p>
-                  <Link to="/" className="cabinet-btn">
+                  <Link to="/" className="cabinet-btn cabinet-btn--outline">
                     Выбрать бейсболку
                   </Link>
                 </article>
@@ -794,7 +794,7 @@ export default function CabinetPage({
                 <article className="cabinet-empty">
                   <h2>Пока нечего отслеживать</h2>
                   <p>Оформите заказ — здесь появится шкала статуса доставки.</p>
-                  <Link to="/" className="cabinet-btn">
+                  <Link to="/" className="cabinet-btn cabinet-btn--outline">
                     В магазин
                   </Link>
                 </article>
@@ -874,7 +874,7 @@ export default function CabinetPage({
                 <article className="cabinet-empty">
                   <h2>Корзина пуста</h2>
                   <p>Добавьте новинки с витрины — они появятся здесь.</p>
-                  <Link to="/" className="cabinet-btn">
+                  <Link to="/" className="cabinet-btn cabinet-btn--outline">
                     Перейти в магазин
                   </Link>
                 </article>

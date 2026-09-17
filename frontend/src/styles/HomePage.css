@@ -532,8 +532,9 @@
   padding: 12px 14px;
   font-size: 14px;
   color: #111;
-  background: #fafafa;
+  background: #fff;
   box-sizing: border-box;
+  caret-color: #111;
 }
 
 .store-auth-modal__form input::placeholder {
@@ -544,6 +545,26 @@
   outline: none;
   border-color: #111;
   background: #fff;
+  box-shadow: none;
+}
+
+.store-auth-modal__form input::selection {
+  background: transparent;
+  color: inherit;
+}
+
+.store-auth-modal__form input::-moz-selection {
+  background: transparent;
+  color: inherit;
+}
+
+.store-auth-modal__form input:-webkit-autofill,
+.store-auth-modal__form input:-webkit-autofill:hover,
+.store-auth-modal__form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #111;
+  caret-color: #111;
+  transition: background-color 99999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px #fff inset;
 }
 
 .store-auth-modal__form button[type='submit'] {
