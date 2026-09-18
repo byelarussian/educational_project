@@ -19,6 +19,51 @@ venv/
 .idea/
 .DS_Store
 
-# Environment
+# Environment / secrets — пароли, API-ключи, токены
 .env
 .env.*
+!.env.example
+!.env.*.example
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Credential and key material
+secrets/
+secrets.*
+*secrets*
+!*secrets*.example
+*secret*
+!*secret*.example
+credentials.*
+*credentials*
+!*credentials*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.keystore
+
+# Tokens and auth dumps
+*token*
+!*token*.example
+*tokens*
+!*tokens*.example
+*api-key*
+*api_key*
+*apikey*
+!*api-key*.example
+!*api_key*.example
+!*apikey*.example
+auth.json
+service-account*.json
+google-credentials*.json
+firebase*.json
+!.firebase*.example
